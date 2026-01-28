@@ -17,10 +17,13 @@ function parseRating(value: string | undefined): number | null {
   return isNaN(num) ? null : num;
 }
 
-// Parse the CSV file
-export function parseCSV(file: File): Promise<RawPlayerCSV[]> {
+// Parse the CSV file (works in both browser and Node.js)
+export async function parseCSV(file: File): Promise<RawPlayerCSV[]> {
+  // Convert File to text (works in Node.js serverless)
+  const text = await file.text();
+  
   return new Promise((resolve, reject) => {
-    Papa.parse<RawPlayerCSV>(file, {
+    Papa.parse<RawPlayerCSV>(text, {
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
