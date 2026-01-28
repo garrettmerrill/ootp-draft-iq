@@ -1,17 +1,15 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useSession } from 'next-auth/react';
 import { 
-  Search, Filter, ChevronDown, ChevronUp, RefreshCw,
-  Users, Target, Sparkles, AlertTriangle, CheckCircle,
-  X, SlidersHorizontal
+  Search, ChevronDown, ChevronUp, RefreshCw,
+  Target, Sparkles, AlertTriangle, CheckCircle,
+  SlidersHorizontal
 } from 'lucide-react';
 import { cn, parseNaturalLanguageQuery, getTierColor } from '@/lib/utils';
 import { Player, PlayerFilters, DEFAULT_FILTERS, POSITIONS, Tier } from '@/types';
 
 export default function DraftBoardPage() {
-  const { data: session } = useSession();
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -21,7 +19,6 @@ export default function DraftBoardPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null);
 
-  // Fetch players
   useEffect(() => {
     async function fetchPlayers() {
       try {
@@ -40,7 +37,6 @@ export default function DraftBoardPage() {
     fetchPlayers();
   }, []);
 
-  // Handle natural language search
   useEffect(() => {
     if (searchQuery.length > 3) {
       const parsed = parseNaturalLanguageQuery(searchQuery);
@@ -57,11 +53,9 @@ export default function DraftBoardPage() {
     }
   }, [searchQuery]);
 
-  // Filter and sort players
   const filteredPlayers = useMemo(() => {
     let result = [...players];
 
-    // Apply filters
     if (filters.positions.length > 0) {
       result = result.filter(p => filters.positions.includes(p.position));
     }
@@ -87,7 +81,6 @@ export default function DraftBoardPage() {
       result = result.filter(p => p.highSchoolClass?.includes('HS'));
     }
 
-    // Text search
     if (filters.searchQuery && filters.searchQuery.length > 0) {
       const query = filters.searchQuery.toLowerCase();
       result = result.filter(p => 
@@ -98,7 +91,6 @@ export default function DraftBoardPage() {
       );
     }
 
-    // Sort
     result.sort((a, b) => {
       let comparison = 0;
       switch (sortBy) {
@@ -120,25 +112,6 @@ export default function DraftBoardPage() {
 
     return result;
   }, [players, filters, sortBy, sortOrder]);
-
-  // Group by tier
-  const playersByTier = useMemo(() => {
-    const groups: Record<Tier, Player[]> = {
-      'Elite': [],
-      'Very Good': [],
-      'Good': [],
-      'Average': [],
-      'Filler': [],
-    };
-
-    filteredPlayers.forEach(p => {
-      if (p.tier) {
-        groups[p.tier].push(p);
-      }
-    });
-
-    return groups;
-  }, [filteredPlayers]);
 
   if (loading) {
     return (
@@ -167,7 +140,6 @@ export default function DraftBoardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-dugout-900 dark:text-white">
@@ -183,10 +155,8 @@ export default function DraftBoardPage() {
         </button>
       </div>
 
-      {/* Search and Filters */}
       <div className="card p-4 space-y-4">
         <div className="flex flex-col sm:flex-row gap-4">
-          {/* Search */}
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-dugout-400" />
             <input
@@ -198,7 +168,6 @@ export default function DraftBoardPage() {
             />
           </div>
           
-          {/* Filter toggle */}
           <button
             onClick={() => setShowFilters(!showFilters)}
             className={cn(
@@ -216,10 +185,8 @@ export default function DraftBoardPage() {
           </button>
         </div>
 
-        {/* Expanded Filters */}
         {showFilters && (
           <div className="pt-4 border-t border-dugout-200 dark:border-dugout-700 space-y-4">
-            {/* Position filters */}
             <div>
               <label className="label">Positions</label>
               <div className="flex flex-wrap gap-2">
@@ -247,7 +214,6 @@ export default function DraftBoardPage() {
               </div>
             </div>
 
-            {/* Tier filters */}
             <div>
               <label className="label">Tiers</label>
               <div className="flex flex-wrap gap-2">
@@ -275,7 +241,6 @@ export default function DraftBoardPage() {
               </div>
             </div>
 
-            {/* Toggle filters */}
             <div className="flex flex-wrap gap-4">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -315,7 +280,6 @@ export default function DraftBoardPage() {
               </label>
             </div>
 
-            {/* Clear filters */}
             <button
               onClick={() => {
                 setFilters(DEFAULT_FILTERS);
@@ -329,7 +293,6 @@ export default function DraftBoardPage() {
         )}
       </div>
 
-      {/* Player List */}
       <div className="space-y-4">
         {filteredPlayers.map((player, index) => (
           <PlayerCard
@@ -379,27 +342,23 @@ function PlayerCard({
       'card overflow-hidden transition-all',
       player.isDrafted && 'opacity-50'
     )}>
-      {/* Collapsed view */}
       <div
         onClick={onToggle}
         className="flex items-center gap-4 p-4 cursor-pointer hover:bg-dugout-50 dark:hover:bg-dugout-800/50"
       >
-        {/* Tier indicator */}
         <div className={cn('h-12 w-1 rounded-full', getTierIndicatorClass(player.tier))} />
         
-        {/* Rank */}
         <div className="w-8 text-center">
           <span className="text-lg font-bold text-dugout-400">#{rank}</span>
         </div>
 
-        {/* Player info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-dugout-900 dark:text-white">
               {player.name}
             </span>
             {player.nickname && (
-              <span className="text-sm text-dugout-500">"{player.nickname}"</span>
+              <span className="text-sm text-dugout-500">&quot;{player.nickname}&quot;</span>
             )}
             {player.isSleeper && (
               <span className="badge-sleeper">
@@ -433,7 +392,6 @@ function PlayerCard({
           </div>
         </div>
 
-        {/* Ratings */}
         <div className="flex items-center gap-6 text-sm">
           <div className="text-center">
             <div className="text-dugout-400 text-xs">OVR/POT</div>
@@ -455,7 +413,6 @@ function PlayerCard({
           </div>
         </div>
 
-        {/* Archetypes */}
         <div className="hidden lg:flex items-center gap-1 flex-wrap max-w-[200px]">
           {player.archetypes.slice(0, 2).map(arch => (
             <span key={arch} className="badge bg-dugout-100 dark:bg-dugout-800 text-dugout-600 dark:text-dugout-400 text-xs">
@@ -467,7 +424,6 @@ function PlayerCard({
           )}
         </div>
 
-        {/* Flags */}
         <div className="flex items-center gap-1">
           {player.redFlags.length > 0 && (
             <span className="text-redFlag" title={player.redFlags.join(', ')}>
@@ -481,24 +437,20 @@ function PlayerCard({
           )}
         </div>
 
-        {/* Draft status */}
         {player.isDrafted && (
           <div className="text-sm text-dugout-500">
             Drafted: R{player.draftRound}, P{player.draftPick}
           </div>
         )}
 
-        {/* Expand icon */}
         <div className="text-dugout-400">
           {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
         </div>
       </div>
 
-      {/* Expanded view */}
       {isExpanded && (
         <div className="border-t border-dugout-200 dark:border-dugout-700 p-4 bg-dugout-50 dark:bg-dugout-800/30">
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {/* Archetypes & Flags */}
             <div>
               <h4 className="text-sm font-medium text-dugout-700 dark:text-dugout-300 mb-2">
                 Archetypes
@@ -537,7 +489,6 @@ function PlayerCard({
               )}
             </div>
 
-            {/* Background */}
             <div>
               <h4 className="text-sm font-medium text-dugout-700 dark:text-dugout-300 mb-2">
                 Background
@@ -572,7 +523,6 @@ function PlayerCard({
               </div>
             </div>
 
-            {/* Physical & Injury */}
             <div>
               <h4 className="text-sm font-medium text-dugout-700 dark:text-dugout-300 mb-2">
                 Physical
@@ -594,7 +544,6 @@ function PlayerCard({
             </div>
           </div>
 
-          {/* Score breakdown */}
           {player.scoreBreakdown && (
             <div className="mt-4 pt-4 border-t border-dugout-200 dark:border-dugout-700">
               <h4 className="text-sm font-medium text-dugout-700 dark:text-dugout-300 mb-2">

@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
-import { parseCSV, convertCSVToPlayer, validateHeaders, getCSVHeaders } from '@/lib/csvParser';
+import { parseCSV, convertCSVToPlayer } from '@/lib/csvParser';
 import { analyzeAllPlayers } from '@/lib/playerAnalysis';
-import { DEFAULT_PHILOSOPHY, PITCHER_POSITIONS } from '@/types';
+import { DEFAULT_PHILOSOPHY, DraftPhilosophy, PITCHER_POSITIONS } from '@/types';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userId = (session.user as any).id;
+    const userId = (session.user as { id: string }).id;
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
@@ -23,45 +23,40 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    // Validate file type
     if (!file.name.endsWith('.csv')) {
       return NextResponse.json({ error: 'File must be a CSV' }, { status: 400 });
     }
 
-    // Parse CSV
     const rawPlayers = await parseCSV(file);
 
     if (rawPlayers.length === 0) {
       return NextResponse.json({ error: 'No players found in CSV' }, { status: 400 });
     }
 
-    // Get user's philosophy or use default
     const userPhilosophy = await prisma.draftPhilosophy.findUnique({
       where: { userId },
     });
 
-    const philosophy = userPhilosophy?.settings 
-      ? (userPhilosophy.settings as typeof DEFAULT_PHILOSOPHY)
-      : DEFAULT_PHILOSOPHY;
+    let philosophy: DraftPhilosophy = DEFAULT_PHILOSOPHY;
+    if (userPhilosophy?.settings) {
+      philosophy = userPhilosophy.settings as unknown as DraftPhilosophy;
+    }
 
-    // Convert and analyze players
     const convertedPlayers = rawPlayers.map(raw => {
       const player = convertCSVToPlayer(raw);
       return {
         ...player,
-        id: `temp-${player.odraftId}`, // Temporary ID for analysis
+        id: `temp-${player.odraftId}`,
       };
     });
 
-    const analyzedPlayers = analyzeAllPlayers(convertedPlayers as any, philosophy);
+    const analyzedPlayers = analyzeAllPlayers(convertedPlayers as Parameters<typeof analyzeAllPlayers>[0], philosophy);
 
-    // Delete existing players for this user
     await prisma.player.deleteMany({
       where: { userId },
     });
 
-    // Insert new players
-    const createdPlayers = await prisma.player.createMany({
+    await prisma.player.createMany({
       data: analyzedPlayers.map(player => ({
         userId,
         playerId: player.odraftId,
@@ -86,11 +81,11 @@ export async function POST(request: NextRequest) {
         committedSchool: player.committedSchool,
         competitionLevel: player.competitionLevel,
         highSchoolClass: player.highSchoolClass,
-        battingRatings: player.battingRatings as any,
-        pitchingRatings: player.pitchingRatings as any,
-        defenseRatings: player.defenseRatings as any,
-        speedRatings: player.speedRatings as any,
-        pitchArsenal: player.pitchArsenal as any,
+        battingRatings: player.battingRatings as object | null,
+        pitchingRatings: player.pitchingRatings as object | null,
+        defenseRatings: player.defenseRatings as object | null,
+        speedRatings: player.speedRatings as object | null,
+        pitchArsenal: player.pitchArsenal as object | null,
         demandAmount: player.demandAmount,
         signability: player.signability,
         scoutAccuracy: player.scoutAccuracy,
@@ -107,9 +102,8 @@ export async function POST(request: NextRequest) {
       })),
     });
 
-    // Calculate stats
     const batters = analyzedPlayers.filter(
-      p => !PITCHER_POSITIONS.includes(p.position as any)
+      p => !(PITCHER_POSITIONS as readonly string[]).includes(p.position)
     ).length;
     const pitchers = analyzedPlayers.length - batters;
 
