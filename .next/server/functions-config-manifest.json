@@ -1,1 +1,1 @@
-{"version":1,"functions":{"/api/philosophy/activate":{},"/api/auth/register":{},"/api/philosophy/create":{},"/api/philosophy/[id]":{},"/api/players":{},"/api/philosophy/recalculate":{},"/api/players/sync-draft":{},"/api/philosophy":{},"/api/players/upload":{}}}
+{"version":1,"functions":{"/api/philosophy/activate":{},"/api/philosophy/recalculate":{},"/api/philosophy/create":{},"/api/auth/register":{},"/api/players":{},"/api/players/upload":{},"/api/philosophy/[id]":{},"/api/philosophy":{},"/api/players/sync-draft":{}}}

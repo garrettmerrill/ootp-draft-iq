@@ -555,6 +555,354 @@ function PlayerCard({
       {/* Expanded view */}
       {isExpanded && (
         <div className="border-t border-dugout-200 dark:border-dugout-700 p-4 bg-dugout-50 dark:bg-dugout-800/30">
+          {/* Player Ratings Section */}
+          <div className="mb-6 pb-6 border-b border-dugout-200 dark:border-dugout-700">
+            <h4 className="text-sm font-medium text-dugout-700 dark:text-dugout-300 mb-3">
+              {isPitcher ? 'Pitching Ratings' : 'Batting Ratings'}
+            </h4>
+            
+            {isPitcher ? (
+              // Pitcher ratings
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {player.pitchingRatings?.stuff !== null && (
+                    <div className="text-center bg-white dark:bg-gray-800 p-3 rounded-lg">
+                      <div className="text-xs text-dugout-500 mb-1">STU</div>
+                      <div className="text-2xl font-bold text-dugout-900 dark:text-white">
+                        {player.pitchingRatings?.stuff}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Movement with sub-ratings */}
+                  {player.pitchingRatings?.movement !== null && (
+                    <div className="bg-white dark:bg-gray-800 p-3 rounded-lg">
+                      <div className="text-center mb-2">
+                        <div className="text-xs text-dugout-500 mb-1">MOV</div>
+                        <div className="text-2xl font-bold text-dugout-900 dark:text-white">
+                          {player.pitchingRatings?.movement}
+                        </div>
+                      </div>
+                      <div className="flex gap-2 justify-center text-xs">
+                        {player.pitchingRatings?.pBabip !== null && (
+                          <div className="text-center">
+                            <div className="text-dugout-400">PBABIP</div>
+                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
+                              {player.pitchingRatings?.pBabip}
+                            </div>
+                          </div>
+                        )}
+                        {player.pitchingRatings?.hrRate !== null && (
+                          <div className="text-center">
+                            <div className="text-dugout-400">HR</div>
+                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
+                              {player.pitchingRatings?.hrRate}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {player.pitchingRatings?.control !== null && (
+                    <div className="text-center bg-white dark:bg-gray-800 p-3 rounded-lg">
+                      <div className="text-xs text-dugout-500 mb-1">CON</div>
+                      <div className="text-2xl font-bold text-dugout-900 dark:text-white">
+                        {player.pitchingRatings?.control}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {player.pitchingRatings?.stamina !== null && (
+                    <div className="text-center bg-white dark:bg-gray-800 p-3 rounded-lg">
+                      <div className="text-xs text-dugout-500 mb-1">STM</div>
+                      <div className="text-2xl font-bold text-dugout-900 dark:text-white">
+                        {player.pitchingRatings?.stamina}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              // Batter ratings
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                  {/* Contact with sub-ratings BABIP and K's */}
+                  {player.battingRatings?.contact !== null && (
+                    <div className="bg-white dark:bg-gray-800 p-3 rounded-lg">
+                      <div className="text-center mb-2">
+                        <div className="text-xs text-dugout-500 mb-1">CON</div>
+                        <div className="text-2xl font-bold text-dugout-900 dark:text-white">
+                          {player.battingRatings?.contact}
+                        </div>
+                      </div>
+                      <div className="flex gap-2 justify-center text-xs">
+                        {player.battingRatings?.babip !== null && (
+                          <div className="text-center">
+                            <div className="text-dugout-400">BABIP</div>
+                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
+                              {player.battingRatings?.babip}
+                            </div>
+                          </div>
+                        )}
+                        {player.battingRatings?.avoidK !== null && (
+                          <div className="text-center">
+                            <div className="text-dugout-400">K's</div>
+                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
+                              {player.battingRatings?.avoidK}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {player.battingRatings?.power !== null && (
+                    <div className="text-center bg-white dark:bg-gray-800 p-3 rounded-lg">
+                      <div className="text-xs text-dugout-500 mb-1">POW</div>
+                      <div className="text-2xl font-bold text-dugout-900 dark:text-white">
+                        {player.battingRatings?.power}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {player.battingRatings?.eye !== null && (
+                    <div className="text-center bg-white dark:bg-gray-800 p-3 rounded-lg">
+                      <div className="text-xs text-dugout-500 mb-1">EYE</div>
+                      <div className="text-2xl font-bold text-dugout-900 dark:text-white">
+                        {player.battingRatings?.eye}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {player.battingRatings?.gap !== null && (
+                    <div className="text-center bg-white dark:bg-gray-800 p-3 rounded-lg">
+                      <div className="text-xs text-dugout-500 mb-1">GAP</div>
+                      <div className="text-2xl font-bold text-dugout-900 dark:text-white">
+                        {player.battingRatings?.gap}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Speed with all sub-ratings */}
+                  {player.speedRatings?.speed !== null && (
+                    <div className="bg-white dark:bg-gray-800 p-3 rounded-lg">
+                      <div className="text-center mb-2">
+                        <div className="text-xs text-dugout-500 mb-1">SPD</div>
+                        <div className="text-2xl font-bold text-dugout-900 dark:text-white">
+                          {player.speedRatings?.speed}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1 text-xs">
+                        {player.speedRatings?.stealingAggression !== null && (
+                          <div className="text-center">
+                            <div className="text-dugout-400">SR</div>
+                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
+                              {player.speedRatings?.stealingAggression}
+                            </div>
+                          </div>
+                        )}
+                        {player.speedRatings?.stealingAbility !== null && (
+                          <div className="text-center">
+                            <div className="text-dugout-400">STE</div>
+                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
+                              {player.speedRatings?.stealingAbility}
+                            </div>
+                          </div>
+                        )}
+                        {player.speedRatings?.baserunning !== null && (
+                          <div className="text-center col-span-2">
+                            <div className="text-dugout-400">RUN</div>
+                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
+                              {player.speedRatings?.baserunning}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Defense section with all ratings and position potentials */}
+                {player.defenseRatings && (
+                  <div className="bg-white dark:bg-gray-800 p-4 rounded-lg">
+                    <h5 className="text-xs font-semibold text-dugout-700 dark:text-dugout-300 mb-3">Defense</h5>
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 text-xs">
+                      {/* Defensive ratings */}
+                      {player.defenseRatings.catcherAbility !== null && (
+                        <div className="text-center">
+                          <div className="text-dugout-400">C Ability</div>
+                          <div className="font-semibold text-dugout-700 dark:text-dugout-300">
+                            {player.defenseRatings.catcherAbility}
+                          </div>
+                        </div>
+                      )}
+                      {player.defenseRatings.catcherArm !== null && (
+                        <div className="text-center">
+                          <div className="text-dugout-400">C Arm</div>
+                          <div className="font-semibold text-dugout-700 dark:text-dugout-300">
+                            {player.defenseRatings.catcherArm}
+                          </div>
+                        </div>
+                      )}
+                      {player.defenseRatings.infieldRange !== null && (
+                        <div className="text-center">
+                          <div className="text-dugout-400">IF Range</div>
+                          <div className="font-semibold text-dugout-700 dark:text-dugout-300">
+                            {player.defenseRatings.infieldRange}
+                          </div>
+                        </div>
+                      )}
+                      {player.defenseRatings.infieldError !== null && (
+                        <div className="text-center">
+                          <div className="text-dugout-400">IF Error</div>
+                          <div className="font-semibold text-dugout-700 dark:text-dugout-300">
+                            {player.defenseRatings.infieldError}
+                          </div>
+                        </div>
+                      )}
+                      {player.defenseRatings.infieldArm !== null && (
+                        <div className="text-center">
+                          <div className="text-dugout-400">IF Arm</div>
+                          <div className="font-semibold text-dugout-700 dark:text-dugout-300">
+                            {player.defenseRatings.infieldArm}
+                          </div>
+                        </div>
+                      )}
+                      {player.defenseRatings.outfieldRange !== null && (
+                        <div className="text-center">
+                          <div className="text-dugout-400">OF Range</div>
+                          <div className="font-semibold text-dugout-700 dark:text-dugout-300">
+                            {player.defenseRatings.outfieldRange}
+                          </div>
+                        </div>
+                      )}
+                      {player.defenseRatings.outfieldError !== null && (
+                        <div className="text-center">
+                          <div className="text-dugout-400">OF Error</div>
+                          <div className="font-semibold text-dugout-700 dark:text-dugout-300">
+                            {player.defenseRatings.outfieldError}
+                          </div>
+                        </div>
+                      )}
+                      {player.defenseRatings.outfieldArm !== null && (
+                        <div className="text-center">
+                          <div className="text-dugout-400">OF Arm</div>
+                          <div className="font-semibold text-dugout-700 dark:text-dugout-300">
+                            {player.defenseRatings.outfieldArm}
+                          </div>
+                        </div>
+                      )}
+                      {player.defenseRatings.turnDoublePlay !== null && (
+                        <div className="text-center">
+                          <div className="text-dugout-400">Turn DP</div>
+                          <div className="font-semibold text-dugout-700 dark:text-dugout-300">
+                            {player.defenseRatings.turnDoublePlay}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Position ratings and potentials */}
+                    <div className="mt-3 pt-3 border-t border-dugout-200 dark:border-dugout-700">
+                      <div className="text-xs font-semibold text-dugout-600 dark:text-dugout-400 mb-2">Position Ratings</div>
+                      <div className="grid grid-cols-4 md:grid-cols-8 gap-2 text-xs">
+                        {player.defenseRatings.catcher !== null && (
+                          <div className="text-center">
+                            <div className="text-dugout-400">C</div>
+                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
+                              {player.defenseRatings.catcher}
+                              {player.defenseRatings.catcherPot && (
+                                <span className="text-dugout-500">/{player.defenseRatings.catcherPot}</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {player.defenseRatings.firstBase !== null && (
+                          <div className="text-center">
+                            <div className="text-dugout-400">1B</div>
+                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
+                              {player.defenseRatings.firstBase}
+                              {player.defenseRatings.firstBasePot && (
+                                <span className="text-dugout-500">/{player.defenseRatings.firstBasePot}</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {player.defenseRatings.secondBase !== null && (
+                          <div className="text-center">
+                            <div className="text-dugout-400">2B</div>
+                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
+                              {player.defenseRatings.secondBase}
+                              {player.defenseRatings.secondBasePot && (
+                                <span className="text-dugout-500">/{player.defenseRatings.secondBasePot}</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {player.defenseRatings.thirdBase !== null && (
+                          <div className="text-center">
+                            <div className="text-dugout-400">3B</div>
+                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
+                              {player.defenseRatings.thirdBase}
+                              {player.defenseRatings.thirdBasePot && (
+                                <span className="text-dugout-500">/{player.defenseRatings.thirdBasePot}</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {player.defenseRatings.shortstop !== null && (
+                          <div className="text-center">
+                            <div className="text-dugout-400">SS</div>
+                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
+                              {player.defenseRatings.shortstop}
+                              {player.defenseRatings.shortstopPot && (
+                                <span className="text-dugout-500">/{player.defenseRatings.shortstopPot}</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {player.defenseRatings.leftField !== null && (
+                          <div className="text-center">
+                            <div className="text-dugout-400">LF</div>
+                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
+                              {player.defenseRatings.leftField}
+                              {player.defenseRatings.leftFieldPot && (
+                                <span className="text-dugout-500">/{player.defenseRatings.leftFieldPot}</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {player.defenseRatings.centerField !== null && (
+                          <div className="text-center">
+                            <div className="text-dugout-400">CF</div>
+                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
+                              {player.defenseRatings.centerField}
+                              {player.defenseRatings.centerFieldPot && (
+                                <span className="text-dugout-500">/{player.defenseRatings.centerFieldPot}</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        {player.defenseRatings.rightField !== null && (
+                          <div className="text-center">
+                            <div className="text-dugout-400">RF</div>
+                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
+                              {player.defenseRatings.rightField}
+                              {player.defenseRatings.rightFieldPot && (
+                                <span className="text-dugout-500">/{player.defenseRatings.rightFieldPot}</span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {/* Archetypes & Flags */}
             <div>

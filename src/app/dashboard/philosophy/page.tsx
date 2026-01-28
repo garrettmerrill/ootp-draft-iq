@@ -71,21 +71,33 @@ export default function PhilosophyPage() {
   async function handleSave() {
     setSaving(true);
     try {
-      if (editing.id) {
+      // Check if we're updating an existing philosophy (has id and is not a preset)
+      const isUpdating = editing.id && !editing.isPreset;
+      
+      if (isUpdating) {
+        // Update existing
         await fetch(`/api/philosophy/${editing.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ philosophy: editing }),
         });
       } else {
+        // Create new (remove id if it exists to force creation)
+        const { id, ...philosophyData } = editing;
         await fetch('/api/philosophy/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ philosophy: editing }),
+          body: JSON.stringify({ 
+            philosophy: {
+              ...philosophyData,
+              isActive: false,
+              isPreset: false,
+            }
+          }),
         });
       }
       await fetchPhilosophies();
-      alert('Philosophy saved successfully!');
+      alert(isUpdating ? 'Philosophy updated successfully!' : 'Philosophy created successfully!');
     } catch (error) {
       alert('Failed to save philosophy');
     } finally {
@@ -204,12 +216,36 @@ export default function PhilosophyPage() {
 
       {/* Global Weights */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">
+        <h2 className="text-xl font-semibold mb-4">Philosophy Info</h2>
+        <div className="space-y-4 mb-6">
+          <div>
+            <label className="block text-sm font-medium mb-2">Name</label>
+            <input
+              type="text"
+              value={editing.name}
+              onChange={(e) => setEditing({...editing, name: e.target.value})}
+              className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+              placeholder="My Custom Philosophy"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Description (Optional)</label>
+            <input
+              type="text"
+              value={editing.description || ''}
+              onChange={(e) => setEditing({...editing, description: e.target.value})}
+              className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+              placeholder="A brief description of this philosophy"
+            />
+          </div>
+        </div>
+
+        <h3 className="text-lg font-semibold mb-4">
           Global Weights 
           <span className={`ml-2 text-sm ${Math.abs(globalTotal - 100) < 0.01 ? 'text-green-600' : 'text-red-600'}`}>
             (Total: {globalTotal.toFixed(1)}%)
           </span>
-        </h2>
+        </h3>
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-2">Potential Weight: {editing.potentialWeight}%</label>
