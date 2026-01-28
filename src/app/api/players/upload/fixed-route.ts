@@ -5,6 +5,7 @@ import prisma from '@/lib/prisma';
 import { parseCSV, convertCSVToPlayer } from '@/lib/csvParser';
 import { analyzeAllPlayers } from '@/lib/playerAnalysis';
 import { DEFAULT_PHILOSOPHY, DraftPhilosophy, PITCHER_POSITIONS } from '@/types';
+import { Prisma } from '@prisma/client';
 
 export async function POST(request: NextRequest) {
   try {
@@ -81,11 +82,11 @@ export async function POST(request: NextRequest) {
         committedSchool: player.committedSchool,
         competitionLevel: player.competitionLevel,
         highSchoolClass: player.highSchoolClass,
-        battingRatings: player.battingRatings as object | null,
-        pitchingRatings: player.pitchingRatings as object | null,
-        defenseRatings: player.defenseRatings as object | null,
-        speedRatings: player.speedRatings as object | null,
-        pitchArsenal: player.pitchArsenal as object | null,
+        battingRatings: player.battingRatings === null ? Prisma.JsonNull : player.battingRatings as Prisma.InputJsonValue,
+        pitchingRatings: player.pitchingRatings === null ? Prisma.JsonNull : player.pitchingRatings as Prisma.InputJsonValue,
+        defenseRatings: player.defenseRatings === null ? Prisma.JsonNull : player.defenseRatings as Prisma.InputJsonValue,
+        speedRatings: player.speedRatings === null ? Prisma.JsonNull : player.speedRatings as Prisma.InputJsonValue,
+        pitchArsenal: player.pitchArsenal === null ? Prisma.JsonNull : player.pitchArsenal as Prisma.InputJsonValue,
         demandAmount: player.demandAmount,
         signability: player.signability,
         scoutAccuracy: player.scoutAccuracy,
