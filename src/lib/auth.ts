@@ -1,7 +1,6 @@
 import { NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
-import prisma from '@/lib/prisma';
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -12,6 +11,9 @@ export const authOptions: NextAuthOptions = {
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials) {
+        // Lazy import prisma only when authorize is called (runtime, not build time)
+        const prisma = (await import('@/lib/prisma')).default;
+        
         if (!credentials?.username || !credentials?.password) {
           throw new Error('Please enter your username and password');
         }
