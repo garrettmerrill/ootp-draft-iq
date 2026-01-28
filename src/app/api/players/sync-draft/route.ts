@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch draft results from Stats Plus API with retry logic
-    let response;
+    let response: Response | undefined;
     let attempt = 0;
     const maxAttempts = 3;
     
@@ -75,6 +75,10 @@ export async function POST(request: NextRequest) {
         // Wait before retry
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
+    }
+
+    if (!response) {
+      throw new Error('Failed to fetch from Stats Plus API after retries');
     }
 
     // Stats Plus returns CSV, not JSON
