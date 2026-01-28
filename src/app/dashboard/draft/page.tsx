@@ -15,12 +15,31 @@ export default function DraftBoardPage() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<PlayerFilters>(DEFAULT_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy] = useState<'rank' | 'name' | 'potential' | 'overall'>('rank');
   const [sortOrder] = useState<'asc' | 'desc'>('desc');
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null);
+
+  // Cooldown timer (5 minutes)
+  const COOLDOWN_MS = 5 * 60 * 1000;
+
+  useEffect(() => {
+    if (lastSyncTime) {
+      const interval = setInterval(() => {
+        const elapsed = Date.now() - lastSyncTime;
+        const remaining = Math.max(0, COOLDOWN_MS - elapsed);
+        setCooldownRemaining(remaining);
+        if (remaining === 0) {
+          clearInterval(interval);
+        }
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [lastSyncTime]);
 
   // Fetch players
   useEffect(() => {
@@ -43,7 +62,13 @@ export default function DraftBoardPage() {
 
   // Sync draft results from Stats Plus
   async function syncDraft() {
+    if (cooldownRemaining > 0) {
+      alert(`⏱️ Please wait ${Math.ceil(cooldownRemaining / 1000)} seconds before syncing again.`);
+      return;
+    }
+
     setSyncing(true);
+    setLastSyncTime(Date.now());
     try {
       const res = await fetch('/api/players/sync-draft', {
         method: 'POST',
@@ -207,11 +232,12 @@ export default function DraftBoardPage() {
         </div>
         <button 
           onClick={syncDraft}
-          disabled={syncing}
+          disabled={syncing || cooldownRemaining > 0}
           className="btn-secondary btn-sm"
+          title={cooldownRemaining > 0 ? `Wait ${Math.ceil(cooldownRemaining / 1000)}s` : 'Sync draft results'}
         >
           <RefreshCw className={cn("w-4 h-4", syncing && "animate-spin")} />
-          {syncing ? 'Syncing...' : 'Sync Draft'}
+          {syncing ? 'Syncing...' : cooldownRemaining > 0 ? `Wait ${Math.ceil(cooldownRemaining / 1000)}s` : 'Sync Draft'}
         </button>
       </div>
 

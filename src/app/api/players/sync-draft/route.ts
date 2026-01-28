@@ -28,11 +28,53 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch draft results from Stats Plus API
-    const response = await fetch(statsPlusUrl);
+    // Fetch draft results from Stats Plus API with retry logic
+    let response;
+    let attempt = 0;
+    const maxAttempts = 3;
     
-    if (!response.ok) {
-      throw new Error(`Stats Plus API returned ${response.status}`);
+    while (attempt < maxAttempts) {
+      try {
+        response = await fetch(statsPlusUrl);
+        
+        // Log rate limit headers if available
+        console.log('Stats Plus API headers:', {
+          'x-ratelimit-limit': response.headers.get('x-ratelimit-limit'),
+          'x-ratelimit-remaining': response.headers.get('x-ratelimit-remaining'),
+          'x-ratelimit-reset': response.headers.get('x-ratelimit-reset'),
+          'retry-after': response.headers.get('retry-after'),
+        });
+        
+        if (response.status === 429) {
+          // Rate limited - wait and retry
+          attempt++;
+          if (attempt >= maxAttempts) {
+            return NextResponse.json(
+              { error: 'Stats Plus API rate limit reached. Please wait a few minutes and try again.' },
+              { status: 429 }
+            );
+          }
+          
+          // Exponential backoff: 2s, 4s, 8s
+          const waitTime = Math.pow(2, attempt) * 1000;
+          console.log(`Rate limited, waiting ${waitTime}ms before retry ${attempt}/${maxAttempts}`);
+          await new Promise(resolve => setTimeout(resolve, waitTime));
+          continue;
+        }
+        
+        if (!response.ok) {
+          throw new Error(`Stats Plus API returned ${response.status}`);
+        }
+        
+        break; // Success!
+      } catch (error) {
+        attempt++;
+        if (attempt >= maxAttempts) {
+          throw error;
+        }
+        // Wait before retry
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
     }
 
     // Stats Plus returns CSV, not JSON
@@ -122,8 +164,20 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Sync draft error:', error);
+    
+    // Check if it's a rate limit error
+    if (error instanceof Error && error.message.includes('429')) {
+      return NextResponse.json(
+        { error: 'Stats Plus API rate limit reached. Please wait a few minutes before trying again.' },
+        { status: 429 }
+      );
+    }
+    
     return NextResponse.json(
-      { error: 'Failed to sync draft results' },
+      { 
+        error: 'Failed to sync draft results',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }
