@@ -35,12 +35,31 @@ export async function POST(request: NextRequest) {
       throw new Error(`Stats Plus API returned ${response.status}`);
     }
 
-    const draftData = await response.json();
+    // Stats Plus returns CSV, not JSON
+    const csvText = await response.text();
     
-    // Stats Plus API returns array of draft picks
-    // Format: [{ round, pick, overall, team, player, playerId? }, ...]
-    if (!Array.isArray(draftData)) {
-      throw new Error('Invalid response from Stats Plus API');
+    // Parse CSV manually (simple parser for draft data)
+    const lines = csvText.trim().split('\n');
+    
+    if (lines.length < 2) {
+      throw new Error('No draft data found in Stats Plus response');
+    }
+    
+    // First line is headers
+    const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+    
+    // Parse each draft pick
+    const draftData = lines.slice(1).map(line => {
+      const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+      const pick: any = {};
+      headers.forEach((header, index) => {
+        pick[header] = values[index] || '';
+      });
+      return pick;
+    });
+    
+    if (draftData.length === 0) {
+      throw new Error('No draft picks found in Stats Plus data');
     }
 
     // Get all players for this user
