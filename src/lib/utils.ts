@@ -147,7 +147,7 @@ export function parseNaturalLanguageQuery(query: string): {
       }
     }
   }
-  result.positions = [...new Set(result.positions)];
+  result.positions = Array.from(new Set(result.positions));
 
   // Potential thresholds
   const potMatch = q.match(/(\d+)\+?\s*pot(ential)?/);
