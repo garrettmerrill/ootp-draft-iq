@@ -7,6 +7,14 @@ import { analyzeAllPlayers } from '@/lib/playerAnalysis';
 import { DEFAULT_PHILOSOPHY, DraftPhilosophy, PITCHER_POSITIONS } from '@/types';
 import { Prisma } from '@prisma/client';
 
+// Helper to convert our types to Prisma JSON
+function toJsonValue(value: unknown): Prisma.InputJsonValue | typeof Prisma.JsonNull {
+  if (value === null || value === undefined) {
+    return Prisma.JsonNull;
+  }
+  return value as unknown as Prisma.InputJsonValue;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -82,11 +90,11 @@ export async function POST(request: NextRequest) {
         committedSchool: player.committedSchool,
         competitionLevel: player.competitionLevel,
         highSchoolClass: player.highSchoolClass,
-        battingRatings: player.battingRatings === null ? Prisma.JsonNull : player.battingRatings as Prisma.InputJsonValue,
-        pitchingRatings: player.pitchingRatings === null ? Prisma.JsonNull : player.pitchingRatings as Prisma.InputJsonValue,
-        defenseRatings: player.defenseRatings === null ? Prisma.JsonNull : player.defenseRatings as Prisma.InputJsonValue,
-        speedRatings: player.speedRatings === null ? Prisma.JsonNull : player.speedRatings as Prisma.InputJsonValue,
-        pitchArsenal: player.pitchArsenal === null ? Prisma.JsonNull : player.pitchArsenal as Prisma.InputJsonValue,
+        battingRatings: toJsonValue(player.battingRatings),
+        pitchingRatings: toJsonValue(player.pitchingRatings),
+        defenseRatings: toJsonValue(player.defenseRatings),
+        speedRatings: toJsonValue(player.speedRatings),
+        pitchArsenal: toJsonValue(player.pitchArsenal),
         demandAmount: player.demandAmount,
         signability: player.signability,
         scoutAccuracy: player.scoutAccuracy,
