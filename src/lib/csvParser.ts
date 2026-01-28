@@ -32,7 +32,7 @@ export async function parseCSV(file: File): Promise<RawPlayerCSV[]> {
         }
         resolve(results.data);
       },
-      error: (error) => {
+      error: (error: Error) => {
         reject(error);
       },
     });
