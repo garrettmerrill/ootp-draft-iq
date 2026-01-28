@@ -383,9 +383,7 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
     potentialContribution: 0,
     overallContribution: 0,
     riskPenalty: 0,
-    scoutAccuracyBonus: 0,
     signabilityBonus: 0,
-    ageClassBonus: 0,
     positionBonus: 0,
     ratingContributions: {},
     total: 0,
@@ -408,14 +406,6 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
   else if (player.risk === 'Medium') riskMult = 0.75;
   breakdown.riskPenalty = -((1 - riskMult) * philosophy.riskWeight);
 
-  // Scout accuracy bonus
-  let scoutMult = 0.5;
-  if (player.scoutAccuracy === 'Very High') scoutMult = 1;
-  else if (player.scoutAccuracy === 'High') scoutMult = 0.75;
-  else if (player.scoutAccuracy === 'Low') scoutMult = 0.25;
-  else if (player.scoutAccuracy === 'Very Low') scoutMult = 0;
-  breakdown.scoutAccuracyBonus = scoutMult * philosophy.scoutAccuracyWeight;
-
   // Signability bonus
   let signMult = 0.5;
   if (player.signability === 'Very Easy') signMult = 1;
@@ -424,17 +414,6 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
   else if (player.signability === 'Extremely Hard') signMult = 0;
   breakdown.signabilityBonus = signMult * philosophy.signabilityWeight;
 
-  // Age/Class bonus
-  const isCollege = player.highSchoolClass?.includes('CO');
-  const isHS = player.highSchoolClass?.includes('HS');
-  if (philosophy.collegeVsHS === 'college' && isCollege) {
-    breakdown.ageClassBonus = philosophy.collegeBonus || (philosophy.ageClassWeight * 0.5);
-  } else if (philosophy.collegeVsHS === 'hs' && isHS) {
-    breakdown.ageClassBonus = philosophy.hsBonus || (philosophy.ageClassWeight * 0.5);
-  } else {
-    breakdown.ageClassBonus = philosophy.ageClassWeight * 0.25;
-  }
-
   // Position bonus
   if (philosophy.priorityPositions.includes(player.position)) {
     breakdown.positionBonus = philosophy.positionBonus;
@@ -442,6 +421,33 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
 
   // Rating contributions
   let ratingScore = 0;
+
+  // College/HS preference bonus
+  const isCollege = player.highSchoolClass?.includes('CO');
+  const isHS = player.highSchoolClass?.includes('HS');
+  if (philosophy.collegeVsHS === 'college' && isCollege) {
+    ratingScore += philosophy.collegeHSBonus;
+    breakdown.ratingContributions['College Bonus'] = philosophy.collegeHSBonus;
+  } else if (philosophy.collegeVsHS === 'hs' && isHS) {
+    ratingScore += philosophy.collegeHSBonus;
+    breakdown.ratingContributions['HS Bonus'] = philosophy.collegeHSBonus;
+  }
+
+  // Batter batted ball type bonus
+  if (!isPitcher && player.battingRatings?.battedBallType) {
+    if (philosophy.preferredBatterTypes.includes(player.battingRatings.battedBallType)) {
+      ratingScore += philosophy.batterTypeBonus;
+      breakdown.ratingContributions['Batter Type Bonus'] = philosophy.batterTypeBonus;
+    }
+  }
+
+  // Pitcher ground/fly type bonus  
+  if (isPitcher && player.pitchingRatings?.groundFlyRatio) {
+    if (philosophy.preferredPitcherTypes.includes(player.pitchingRatings.groundFlyRatio)) {
+      ratingScore += philosophy.pitcherTypeBonus;
+      breakdown.ratingContributions['Pitcher Type Bonus'] = philosophy.pitcherTypeBonus;
+    }
+  }
   
   if (isPitcher && player.pitchingRatings && player.pitchArsenal) {
     const p = player.pitchingRatings;
@@ -453,24 +459,32 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
       breakdown.ratingContributions['Stuff'] = c;
       ratingScore += c;
     }
-    if (p.movementPot) {
-      const c = (normalize(p.movementPot) * w.movement) / 100;
-      breakdown.ratingContributions['Movement'] = c;
-      ratingScore += c;
+    
+    // Movement vs PBABIP+HR toggle
+    const useMovement = isStarter ? philosophy.useMovementSP : philosophy.useMovementRP;
+    
+    if (useMovement) {
+      if (p.movementPot) {
+        const c = (normalize(p.movementPot) * w.movement) / 100;
+        breakdown.ratingContributions['Movement'] = c;
+        ratingScore += c;
+      }
+    } else {
+      if (p.pBabipPot) {
+        const c = (normalize(p.pBabipPot) * w.pBabip) / 100;
+        breakdown.ratingContributions['PBABIP'] = c;
+        ratingScore += c;
+      }
+      if (p.hrRatePot) {
+        const c = (normalize(p.hrRatePot) * w.hrRate) / 100;
+        breakdown.ratingContributions['HR Rate'] = c;
+        ratingScore += c;
+      }
     }
+    
     if (p.controlPot) {
       const c = (normalize(p.controlPot) * w.control) / 100;
       breakdown.ratingContributions['Control'] = c;
-      ratingScore += c;
-    }
-    if (p.pBabipPot) {
-      const c = (normalize(p.pBabipPot) * w.pBabip) / 100;
-      breakdown.ratingContributions['PBABIP'] = c;
-      ratingScore += c;
-    }
-    if (p.hrRatePot) {
-      const c = (normalize(p.hrRatePot) * w.hrRate) / 100;
-      breakdown.ratingContributions['HR Rate'] = c;
       ratingScore += c;
     }
     if (isStarter && p.stamina) {
@@ -487,15 +501,6 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
     const arsenalC = (arsenalScore * w.arsenal) / 100;
     breakdown.ratingContributions['Arsenal'] = arsenalC;
     ratingScore += arsenalC;
-
-    // GB/FB preference
-    if (philosophy.groundballVsFlyball === 'groundball' && (p.groundFlyRatio === 'GB' || p.groundFlyRatio === 'EX GB')) {
-      ratingScore += philosophy.groundballBonus;
-      breakdown.ratingContributions['GB Bonus'] = philosophy.groundballBonus;
-    } else if (philosophy.groundballVsFlyball === 'flyball' && (p.groundFlyRatio === 'FB' || p.groundFlyRatio === 'EX FB')) {
-      ratingScore += philosophy.flyballBonus;
-      breakdown.ratingContributions['FB Bonus'] = philosophy.flyballBonus;
-    }
   } else if (player.battingRatings && player.speedRatings && player.defenseRatings) {
     const b = player.battingRatings;
     const s = player.speedRatings;
@@ -540,14 +545,15 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
     
     const speedScore = normalize(s.speed);
     const defScore = Math.max(normalize(d.infieldRange), normalize(d.outfieldRange), normalize(d.catcherAbility));
-    const sdAvg = (speedScore + defScore) / 2;
-    const sdC = (sdAvg * w.speedDefense) / 100;
-    breakdown.ratingContributions['Speed/Defense'] = sdC;
-    ratingScore += sdC;
+    const speedC = (speedScore * w.speed) / 100;
+    const defC = (defScore * w.defense) / 100;
+    breakdown.ratingContributions['Speed'] = speedC;
+    breakdown.ratingContributions['Defense'] = defC;
+    ratingScore += speedC + defC;
   }
 
   breakdown.total = breakdown.potentialContribution + breakdown.overallContribution + breakdown.riskPenalty +
-    breakdown.scoutAccuracyBonus + breakdown.signabilityBonus + breakdown.ageClassBonus + breakdown.positionBonus + ratingScore;
+    breakdown.signabilityBonus + breakdown.positionBonus + ratingScore;
   breakdown.total = Math.max(0, Math.min(100, breakdown.total));
 
   return { score: breakdown.total, breakdown };

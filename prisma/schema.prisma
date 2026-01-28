@@ -17,7 +17,7 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   
-  philosophy    DraftPhilosophy?
+  philosophies  DraftPhilosophy[]
   players       Player[]
   notes         Note[]
   comparisons   Comparison[]
@@ -25,13 +25,19 @@ model User {
 }
 
 model DraftPhilosophy {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  settings  Json     // Stores all weights and preferences
-  presetName String? // Which preset they started from, if any
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  settings    Json     // Stores the full philosophy object
+  isActive    Boolean  @default(false)
+  isPreset    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([userId, isActive])
 }
 
 model Player {

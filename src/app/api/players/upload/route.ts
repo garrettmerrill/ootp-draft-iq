@@ -46,8 +46,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No players found in CSV' }, { status: 400 });
     }
 
-    const userPhilosophy = await prisma.draftPhilosophy.findUnique({
-      where: { userId },
+    const userPhilosophy = await prisma.draftPhilosophy.findFirst({
+      where: { 
+        userId,
+        isActive: true,
+      },
     });
 
     let philosophy: DraftPhilosophy = DEFAULT_PHILOSOPHY;

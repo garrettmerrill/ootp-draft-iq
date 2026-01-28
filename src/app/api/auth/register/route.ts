@@ -52,10 +52,13 @@ export async function POST(request: NextRequest) {
       data: {
         username,
         passwordHash,
-        philosophy: {
+        philosophies: {
           create: {
+            name: 'Default',
+            description: 'Your default draft philosophy',
             settings: DEFAULT_PHILOSOPHY as any,
-            presetName: 'balanced',
+            isActive: true,
+            isPreset: false,
           },
         },
       },

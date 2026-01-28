@@ -1,0 +1,1 @@
+{"version":1,"functions":{"/api/auth/register":{},"/api/philosophy/[id]":{},"/api/philosophy/create":{},"/api/philosophy/recalculate":{},"/api/philosophy/activate":{},"/api/players/upload":{},"/api/players/sync-draft":{},"/api/players":{},"/api/philosophy":{}}}
