@@ -474,7 +474,8 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
       ratingScore += c;
     }
     if (isStarter && p.stamina) {
-      const c = (normalize(p.stamina) * w.stamina) / 100;
+      const staminaWeight = philosophy.spWeights.stamina;
+      const c = (normalize(p.stamina) * staminaWeight) / 100;
       breakdown.ratingContributions['Stamina'] = c;
       ratingScore += c;
     }
