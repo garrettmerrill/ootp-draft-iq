@@ -64,19 +64,19 @@ export interface RawPlayerCSV {
   // Pitching vs L
   "STU vL": string;
   "MOV vL": string;
-  "CON vL": string;
+  // "CON vL" is shared with batting contact vs L
   "PBABIP vL": string;
   "HRR vL": string;
   // Pitching vs R
   "STU vR": string;
   "MOV vR": string;
-  "CON vR": string;
+  // "CON vR" is shared with batting contact vs R
   "PBABIP vR": string;
   "HRR vR": string;
   // Pitching Potential
   "STU P": string;
   "MOV P": string;
-  "CON P": string; // Control potential (context dependent)
+  // "CON P" is shared with batting contact potential (context dependent)
   "PBABIP P": string;
   "HRR P": string;
   // Pitch Arsenal
