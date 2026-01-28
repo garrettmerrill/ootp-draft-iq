@@ -76,8 +76,8 @@ export async function POST(request: NextRequest) {
 
     // Match draft picks to players
     for (const pick of draftData) {
-      // Stats Plus might use different field names - check multiple possibilities
-      const playerName = pick.player || pick.Player || pick.name || pick.Name;
+      // Stats Plus uses 'Player Name' (with space)
+      const playerName = pick['Player Name'];
       
       if (!playerName) {
         console.warn('No player name found in pick:', pick);
@@ -91,8 +91,8 @@ export async function POST(request: NextRequest) {
 
       if (player) {
         // Parse round and pick as integers
-        const round = parseInt(pick.round || pick.Round || '0');
-        const pickNum = parseInt(pick.pick || pick.Pick || '0');
+        const round = parseInt(pick.Round || '0');
+        const pickNum = parseInt(pick['Pick In Round'] || '0');
         
         // Update player with draft information
         updates.push(
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
               isDrafted: true,
               draftRound: round,
               draftPick: pickNum,
-              draftTeam: pick.team || pick.Team || '',
+              draftTeam: pick.Team || '',
             },
           })
         );
