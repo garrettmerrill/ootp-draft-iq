@@ -14,6 +14,7 @@ export default function DraftBoardPage() {
   useSession(); // For auth check
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<PlayerFilters>(DEFAULT_FILTERS);
   const [showFilters, setShowFilters] = useState(false);
@@ -39,6 +40,40 @@ export default function DraftBoardPage() {
 
     fetchPlayers();
   }, []);
+
+  // Sync draft results from Stats Plus
+  async function syncDraft() {
+    setSyncing(true);
+    try {
+      const res = await fetch('/api/players/sync-draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          statsPlusUrl: 'https://statsplus.net/ooobl/api/draftv2/',
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to sync');
+      }
+
+      // Refresh player list
+      const playersRes = await fetch('/api/players');
+      const playersData = await playersRes.json();
+      if (playersData.players) {
+        setPlayers(playersData.players);
+      }
+
+      alert(`✅ ${data.message}`);
+    } catch (error) {
+      console.error('Sync error:', error);
+      alert('❌ Failed to sync draft results. Check console for details.');
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   // Handle natural language search
   useEffect(() => {
@@ -170,9 +205,13 @@ export default function DraftBoardPage() {
             {filteredPlayers.length} of {players.length} players
           </p>
         </div>
-        <button className="btn-secondary btn-sm">
-          <RefreshCw className="w-4 h-4" />
-          Sync Draft
+        <button 
+          onClick={syncDraft}
+          disabled={syncing}
+          className="btn-secondary btn-sm"
+        >
+          <RefreshCw className={cn("w-4 h-4", syncing && "animate-spin")} />
+          {syncing ? 'Syncing...' : 'Sync Draft'}
         </button>
       </div>
 
