@@ -1,0 +1,78 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+import prisma from '@/lib/prisma';
+
+export async function GET(request: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userId = (session.user as any).id;
+
+    const players = await prisma.player.findMany({
+      where: { userId },
+      orderBy: { compositeScore: 'desc' },
+    });
+
+    // Transform to match our Player type
+    const transformedPlayers = players.map(p => ({
+      id: p.id,
+      odraftId: p.playerId,
+      position: p.position,
+      name: p.name,
+      nickname: p.nickname,
+      age: p.age,
+      height: p.height,
+      weight: p.weight,
+      bats: p.bats,
+      throws: p.throws,
+      overall: p.overall,
+      potential: p.potential,
+      leadership: p.leadership,
+      loyalty: p.loyalty,
+      adaptability: p.adaptability,
+      financialAmbition: p.financialAmbition,
+      workEthic: p.workEthic,
+      intelligence: p.intelligence,
+      injuryProne: p.injuryProne,
+      school: p.school,
+      committedSchool: p.committedSchool,
+      competitionLevel: p.competitionLevel,
+      highSchoolClass: p.highSchoolClass,
+      battingRatings: p.battingRatings,
+      pitchingRatings: p.pitchingRatings,
+      defenseRatings: p.defenseRatings,
+      speedRatings: p.speedRatings,
+      pitchArsenal: p.pitchArsenal,
+      demandAmount: p.demandAmount,
+      signability: p.signability,
+      scoutAccuracy: p.scoutAccuracy,
+      risk: p.risk,
+      compositeScore: p.compositeScore,
+      tier: p.tier,
+      isSleeper: p.isSleeper,
+      sleeperScore: p.sleeperScore,
+      archetypes: p.archetypes,
+      redFlags: p.redFlags,
+      greenFlags: p.greenFlags,
+      hasSplitsIssues: p.hasSplitsIssues,
+      isTwoWay: p.isTwoWay,
+      isDrafted: p.isDrafted,
+      draftRound: p.draftRound,
+      draftPick: p.draftPick,
+      draftTeam: p.draftTeam,
+    }));
+
+    return NextResponse.json({ players: transformedPlayers });
+  } catch (error) {
+    console.error('Failed to fetch players:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch players' },
+      { status: 500 }
+    );
+  }
+}

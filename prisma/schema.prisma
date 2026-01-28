@@ -1,0 +1,163 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  username      String    @unique
+  passwordHash  String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  philosophy    DraftPhilosophy?
+  players       Player[]
+  notes         Note[]
+  comparisons   Comparison[]
+  draftHistory  DraftPick[]
+}
+
+model DraftPhilosophy {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  settings  Json     // Stores all weights and preferences
+  presetName String? // Which preset they started from, if any
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Player {
+  id                  String   @id @default(cuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Original CSV ID
+  playerId            String
+  
+  // Basic Info
+  position            String
+  name                String
+  nickname            String?
+  age                 Int
+  height              String
+  weight              String
+  bats                String
+  throws              String
+  
+  // Ratings
+  overall             Int
+  potential           Int
+  
+  // Personality
+  leadership          String?
+  loyalty             String?
+  adaptability        String?
+  financialAmbition   String?
+  workEthic           String?
+  intelligence        String?
+  injuryProne         String?
+  
+  // Background
+  school              String?
+  committedSchool     String?
+  competitionLevel    String?
+  highSchoolClass     String?
+  
+  // All ratings stored as JSON for flexibility
+  battingRatings      Json?
+  pitchingRatings     Json?
+  defenseRatings      Json?
+  speedRatings        Json?
+  pitchArsenal        Json?
+  
+  // Signing info
+  demandAmount        String?
+  signability         String?
+  scoutAccuracy       String?
+  risk                String?
+  
+  // Calculated fields
+  compositeScore      Float?
+  tier                String?
+  isSleeper           Boolean  @default(false)
+  sleeperScore        Float?
+  archetypes          String[] // Array of archetype labels
+  redFlags            String[]
+  greenFlags          String[]
+  hasSplitsIssues     Boolean  @default(false)
+  isTwoWay            Boolean  @default(false)
+  
+  // Draft status
+  isDrafted           Boolean  @default(false)
+  draftRound          Int?
+  draftPick           Int?
+  draftTeam           String?
+  
+  notes               Note[]
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  @@unique([userId, playerId])
+  @@index([userId])
+  @@index([position])
+  @@index([tier])
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  playerId  String
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  content   String
+  tags      String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([playerId])
+}
+
+model Comparison {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  playerIds String[] // Array of player IDs being compared
+  name      String?  // Optional name for the comparison
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+}
+
+model DraftPick {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // From Stats Plus API
+  round       Int
+  pick        Int
+  overallPick Int
+  teamName    String
+  playerId    String?  // Links to our player if we have them
+  playerName  String   // From API
+  
+  // Analysis
+  wasReach    Boolean?
+  wasValue    Boolean?
+  reachAmount Float?   // How much above expected
+  
+  createdAt   DateTime @default(now())
+  
+  @@unique([userId, round, pick])
+  @@index([userId])
+}

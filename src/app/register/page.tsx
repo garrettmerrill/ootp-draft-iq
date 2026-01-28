@@ -1,0 +1,167 @@
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { Brain, Eye, EyeOff, Loader2, CheckCircle } from 'lucide-react';
+
+export default function RegisterPage() {
+  const router = useRouter();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || 'Something went wrong');
+        return;
+      }
+
+      router.push('/login?registered=true');
+    } catch (err) {
+      setError('Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const passwordRequirements = [
+    { met: password.length >= 6, text: 'At least 6 characters' },
+  ];
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-dugout-950 via-dugout-900 to-dugout-950 px-4 py-12">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <Link href="/" className="inline-flex items-center gap-2 mb-6">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-diamond-500 to-diamond-600 flex items-center justify-center">
+              <Brain className="w-6 h-6 text-white" />
+            </div>
+            <span className="text-2xl font-bold text-white">OOTP Draft IQ</span>
+          </Link>
+          <h1 className="text-2xl font-bold text-white">Create your account</h1>
+          <p className="text-dugout-400 mt-2">Start building your championship roster</p>
+        </div>
+
+        <div className="card p-8">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="p-3 rounded-lg bg-redFlag/10 border border-redFlag/20 text-redFlag text-sm">
+                {error}
+              </div>
+            )}
+
+            <div>
+              <label htmlFor="username" className="label">Username</label>
+              <input
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="input"
+                placeholder="Choose a username"
+                required
+                minLength={3}
+                disabled={loading}
+              />
+              <p className="mt-1 text-xs text-dugout-500">At least 3 characters</p>
+            </div>
+
+            <div>
+              <label htmlFor="password" className="label">Password</label>
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="input pr-10"
+                  placeholder="Create a password"
+                  required
+                  minLength={6}
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-dugout-400 hover:text-dugout-600"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+              <div className="mt-2 space-y-1">
+                {passwordRequirements.map((req, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs">
+                    <CheckCircle className={`w-4 h-4 ${req.met ? 'text-greenFlag' : 'text-dugout-400'}`} />
+                    <span className={req.met ? 'text-greenFlag' : 'text-dugout-500'}>{req.text}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="confirmPassword" className="label">Confirm Password</label>
+              <input
+                id="confirmPassword"
+                type={showPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="input"
+                placeholder="Confirm your password"
+                required
+                disabled={loading}
+              />
+              {confirmPassword && password !== confirmPassword && (
+                <p className="mt-1 text-xs text-redFlag">Passwords do not match</p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || password !== confirmPassword || password.length < 6}
+              className="btn-primary btn-lg w-full"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Creating account...
+                </>
+              ) : (
+                'Create Account'
+              )}
+            </button>
+          </form>
+
+          <div className="mt-6 text-center text-sm text-dugout-500">
+            Already have an account?{' '}
+            <Link href="/login" className="text-diamond-600 hover:text-diamond-500 font-medium">
+              Sign in
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
