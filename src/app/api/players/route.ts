@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import prisma from '@/lib/prisma';
+
+// Force this route to be dynamic
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
+    // Lazy import prisma only at runtime
+    const prisma = (await import('@/lib/prisma')).default;
     const session = await getServerSession(authOptions);
     
     if (!session?.user) {

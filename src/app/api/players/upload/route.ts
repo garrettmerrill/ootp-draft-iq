@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import prisma from '@/lib/prisma';
 import { parseCSV, convertCSVToPlayer } from '@/lib/csvParser';
 import { analyzeAllPlayers } from '@/lib/playerAnalysis';
 import { DEFAULT_PHILOSOPHY, DraftPhilosophy, PITCHER_POSITIONS } from '@/types';
 import { Prisma } from '@prisma/client';
+
+// Force this route to be dynamic
+export const dynamic = 'force-dynamic';
 
 // Helper to convert our types to Prisma JSON
 function toJsonValue(value: unknown): Prisma.InputJsonValue | typeof Prisma.JsonNull {
@@ -17,6 +19,8 @@ function toJsonValue(value: unknown): Prisma.InputJsonValue | typeof Prisma.Json
 
 export async function POST(request: NextRequest) {
   try {
+    // Lazy import prisma only at runtime
+    const prisma = (await import('@/lib/prisma')).default;
     const session = await getServerSession(authOptions);
     
     if (!session?.user) {
