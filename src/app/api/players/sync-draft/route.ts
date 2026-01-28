@@ -67,26 +67,42 @@ export async function POST(request: NextRequest) {
       where: { userId },
     });
 
+    // Log the first pick to see what fields we have
+    console.log('First draft pick data:', draftData[0]);
+    console.log('Available fields:', Object.keys(draftData[0]));
+
     let updatedCount = 0;
     const updates: Promise<any>[] = [];
 
     // Match draft picks to players
     for (const pick of draftData) {
+      // Stats Plus might use different field names - check multiple possibilities
+      const playerName = pick.player || pick.Player || pick.name || pick.Name;
+      
+      if (!playerName) {
+        console.warn('No player name found in pick:', pick);
+        continue;
+      }
+      
       // Try to find player by name (case-insensitive)
       const player = players.find(p => 
-        p.name.toLowerCase() === pick.player.toLowerCase()
+        p.name.toLowerCase() === playerName.toLowerCase()
       );
 
       if (player) {
+        // Parse round and pick as integers
+        const round = parseInt(pick.round || pick.Round || '0');
+        const pickNum = parseInt(pick.pick || pick.Pick || '0');
+        
         // Update player with draft information
         updates.push(
           prisma.player.update({
             where: { id: player.id },
             data: {
               isDrafted: true,
-              draftRound: pick.round,
-              draftPick: pick.pick,
-              draftTeam: pick.team,
+              draftRound: round,
+              draftPick: pickNum,
+              draftTeam: pick.team || pick.Team || '',
             },
           })
         );
