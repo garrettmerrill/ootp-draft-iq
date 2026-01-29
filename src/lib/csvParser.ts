@@ -40,7 +40,7 @@ export async function parseCSV(file: File): Promise<RawPlayerCSV[]> {
 }
 
 // Convert raw CSV data to our Player type
-export function convertCSVToPlayer(raw: RawPlayerCSV): Omit<Player, 'id' | 'compositeScore' | 'tier' | 'isSleeper' | 'sleeperScore' | 'archetypes' | 'redFlags' | 'greenFlags' | 'hasSplitsIssues' | 'isTwoWay' | 'scoreBreakdown' | 'similarPlayers'> {
+export function convertCSVToPlayer(raw: RawPlayerCSV): Omit<Player, 'id' | 'compositeScore' | 'tier' | 'isSleeper' | 'sleeperScore' | 'archetypes' | 'redFlags' | 'greenFlags' | 'hasSplitsIssues' | 'isTwoWay' | 'scoreBreakdown' | 'similarPlayers' | 'ranking'> {
   const isPitcher = PITCHER_POSITIONS.includes(raw.POS as any);
   
   // Parse batting ratings
@@ -77,12 +77,10 @@ export function convertCSVToPlayer(raw: RawPlayerCSV): Omit<Player, 'id' | 'comp
   };
 
   // For pitching ratings, we need to handle the duplicate CON column
-  // The pitching control is in a different position in the CSV
-  // We'll use context to determine which CON to use
   const pitchingRatings: PitchingRatings = {
     stuff: parseRating(raw.STU),
     movement: parseRating(raw.MOV),
-    control: parseRating(raw.CON), // This will be the pitching control for pitchers
+    control: parseRating(raw.CON),
     pBabip: parseRating(raw.PBABIP),
     hrRate: parseRating(raw.HRR),
     // vs Left
@@ -215,6 +213,8 @@ export function convertCSVToPlayer(raw: RawPlayerCSV): Omit<Player, 'id' | 'comp
     signability: raw.Sign || null,
     scoutAccuracy: raw.SctAcc || null,
     risk: raw.Risk || null,
+    
+    isNotInterested: false,
     
     isDrafted: false,
     draftRound: null,

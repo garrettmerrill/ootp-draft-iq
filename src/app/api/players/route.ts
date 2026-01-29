@@ -17,8 +17,19 @@ export async function GET() {
 
     const userId = (session.user as { id: string }).id;
 
+    // Get players with their ranking info
     const players = await prisma.player.findMany({
       where: { userId },
+      include: {
+        rankings: {
+          where: { userId },
+          select: {
+            id: true,
+            tier: true,
+            rankInTier: true,
+          },
+        },
+      },
       orderBy: { compositeScore: 'desc' },
     });
 
@@ -64,10 +75,13 @@ export async function GET() {
       greenFlags: p.greenFlags,
       hasSplitsIssues: p.hasSplitsIssues,
       isTwoWay: p.isTwoWay,
+      isNotInterested: p.isNotInterested,
       isDrafted: p.isDrafted,
       draftRound: p.draftRound,
       draftPick: p.draftPick,
       draftTeam: p.draftTeam,
+      // Include ranking info if player is in user's rankings
+      ranking: p.rankings.length > 0 ? p.rankings[0] : null,
     }));
 
     return NextResponse.json({ players: transformedPlayers });

@@ -15,14 +15,12 @@ import {
   Sparkles,
   History,
   BarChart3,
-  Download,
   Settings,
   LogOut,
   Moon,
   Sun,
   Menu,
   X,
-  ChevronDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -35,7 +33,6 @@ const navigation = [
   { name: 'Compare', href: '/dashboard/compare', icon: Users },
   { name: 'Draft History', href: '/dashboard/history', icon: History },
   { name: 'Position Scarcity', href: '/dashboard/scarcity', icon: BarChart3 },
-  { name: 'Export', href: '/dashboard/export', icon: Download },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ];
 

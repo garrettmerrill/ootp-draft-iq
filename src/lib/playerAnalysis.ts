@@ -700,7 +700,7 @@ export function getSwingTendencySummary(player: Player): string {
 // ==================== FULL ANALYSIS ====================
 
 export function analyzePlayer(
-  player: Omit<Player, 'compositeScore' | 'tier' | 'isSleeper' | 'sleeperScore' | 'archetypes' | 'redFlags' | 'greenFlags' | 'hasSplitsIssues' | 'isTwoWay' | 'scoreBreakdown' | 'similarPlayers'>,
+  player: Omit<Player, 'compositeScore' | 'tier' | 'isSleeper' | 'sleeperScore' | 'archetypes' | 'redFlags' | 'greenFlags' | 'hasSplitsIssues' | 'isTwoWay' | 'scoreBreakdown' | 'similarPlayers' | 'ranking'>,
   philosophy: DraftPhilosophy
 ): Player {
   const fullPlayer = player as Player;
@@ -730,7 +730,7 @@ export function analyzePlayer(
 }
 
 export function analyzeAllPlayers(
-  players: Omit<Player, 'compositeScore' | 'tier' | 'isSleeper' | 'sleeperScore' | 'archetypes' | 'redFlags' | 'greenFlags' | 'hasSplitsIssues' | 'isTwoWay' | 'scoreBreakdown' | 'similarPlayers'>[],
+  players: Omit<Player, 'compositeScore' | 'tier' | 'isSleeper' | 'sleeperScore' | 'archetypes' | 'redFlags' | 'greenFlags' | 'hasSplitsIssues' | 'isTwoWay' | 'scoreBreakdown' | 'similarPlayers' | 'ranking'>[],
   philosophy: DraftPhilosophy
 ): Player[] {
   let analyzed = players.map(p => analyzePlayer(p, philosophy));

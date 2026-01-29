@@ -340,16 +340,52 @@ export interface Player {
   hasSplitsIssues: boolean;
   isTwoWay: boolean;
   
+  // User preferences
+  isNotInterested: boolean;
+  
   // Draft status
   isDrafted: boolean;
   draftRound: number | null;
   draftPick: number | null;
   draftTeam: string | null;
   
+  // Rankings info (if player is in user's rankings)
+  ranking?: {
+    id: string;
+    tier: number;
+    rankInTier: number;
+  } | null;
+  
   // Explanation
   scoreBreakdown?: ScoreBreakdown;
   similarPlayers?: string[];
 }
+
+// Ranking types
+export interface UserRanking {
+  id: string;
+  odraftId: string;
+  playerId: string;
+  tier: number;
+  rankInTier: number;
+  player: Player;
+}
+
+export interface TierNames {
+  1: string;
+  2: string;
+  3: string;
+  4: string;
+  5: string;
+}
+
+export const DEFAULT_TIER_NAMES: TierNames = {
+  1: 'Must Have',
+  2: 'Priority',
+  3: 'Target',
+  4: 'Value',
+  5: 'Flier',
+};
 
 export type Tier = 'Elite' | 'Very Good' | 'Good' | 'Average' | 'Filler';
 
@@ -832,6 +868,7 @@ export interface PlayerFilters {
   showDrafted: boolean;
   showSleepersOnly: boolean;
   showTwoWayOnly: boolean;
+  showNotInterested: boolean;
   collegeOnly: boolean;
   hsOnly: boolean;
   maxDemand: number | null;
@@ -849,6 +886,7 @@ export const DEFAULT_FILTERS: PlayerFilters = {
   showDrafted: false,
   showSleepersOnly: false,
   showTwoWayOnly: false,
+  showNotInterested: false,
   collegeOnly: false,
   hsOnly: false,
   maxDemand: null,
