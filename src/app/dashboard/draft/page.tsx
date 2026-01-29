@@ -421,7 +421,7 @@ function RatingBar({
   potential: number | null | undefined;
   small?: boolean;
 }) {
-  // Determine color based on current rating
+  // Determine color based on rating value
   const getRatingColor = (rating: number): string => {
     if (rating >= 70) return 'bg-blue-500'; // Elite
     if (rating >= 60) return 'bg-green-500'; // Very Good
@@ -438,24 +438,42 @@ function RatingBar({
     return 'text-red-500 dark:text-red-400'; // Poor
   };
   
-  // Calculate percentage for bar fill (current out of potential, or current out of 80 if no potential)
-  const maxValue = potential || 80;
-  const percentage = Math.min((current / maxValue) * 100, 100);
+  // Calculate percentages out of 80
+  const maxValue = 80;
+  const currentPercentage = (current / maxValue) * 100;
+  const potentialPercentage = potential ? (potential / maxValue) * 100 : currentPercentage;
   
   return (
     <div className={small ? "text-xs" : ""}>
       <div className="flex justify-between items-center mb-1">
-        <span className={`${small ? 'text-xs' : 'text-sm'} text-dugout-600 dark:text-dugout-400`}>
+        <span className={`${small ? 'text-xs' : 'text-sm'} font-medium text-dugout-600 dark:text-dugout-400`}>
           {label}
         </span>
-        <span className={`${small ? 'text-xs' : 'text-sm'} font-semibold ${getTextColor(current)}`}>
-          {current}{potential ? `/${potential}` : ''}
-        </span>
+        <div className="flex gap-2 text-xs">
+          <span className={`font-semibold ${getTextColor(current)}`}>
+            {current}
+          </span>
+          {potential !== null && potential !== undefined && (
+            <span className={`font-semibold ${getTextColor(potential)}`}>
+              / {potential}
+            </span>
+          )}
+        </div>
       </div>
-      <div className="w-full bg-dugout-200 dark:bg-dugout-700 rounded-full h-2">
+      
+      {/* Combined bar with overall and potential */}
+      <div className="relative w-full bg-dugout-200 dark:bg-dugout-700 rounded-full h-2 overflow-hidden">
+        {/* Potential bar (background, lighter color, full width to potential) */}
+        {potential !== null && potential !== undefined && potential > current && (
+          <div 
+            className={`absolute top-0 left-0 h-2 rounded-full transition-all ${getRatingColor(potential)} opacity-40`}
+            style={{ width: `${potentialPercentage}%` }}
+          />
+        )}
+        {/* Overall bar (foreground, solid color, width to current) */}
         <div 
-          className={`h-2 rounded-full transition-all ${getRatingColor(current)}`}
-          style={{ width: `${percentage}%` }}
+          className={`absolute top-0 left-0 h-2 rounded-full transition-all ${getRatingColor(current)}`}
+          style={{ width: `${currentPercentage}%` }}
         />
       </div>
     </div>
@@ -716,62 +734,64 @@ function PlayerCard({
             ) : (
               // Batter ratings
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {/* Contact with sub-ratings */}
-                  {player.battingRatings?.contact !== null && player.battingRatings && (
-                    <div className="space-y-2">
-                      <RatingBar 
-                        label="Contact" 
-                        current={player.battingRatings.contact!} 
-                        potential={player.battingRatings.contactPot} 
-                      />
-                      <div className="ml-4 space-y-1">
-                        {player.battingRatings.babip !== null && (
-                          <RatingBar 
-                            label="BABIP" 
-                            current={player.battingRatings.babip!} 
-                            potential={player.battingRatings.babipPot} 
-                            small
-                          />
-                        )}
-                        {player.battingRatings.avoidK !== null && (
-                          <RatingBar 
-                            label="Avoid K's" 
-                            current={player.battingRatings.avoidK!} 
-                            potential={player.battingRatings.avoidKPot} 
-                            small
-                          />
-                        )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Left column: Contact with sub-ratings */}
+                  <div className="space-y-4">
+                    {player.battingRatings?.contact !== null && player.battingRatings && (
+                      <div className="space-y-2">
+                        <RatingBar 
+                          label="Contact" 
+                          current={player.battingRatings.contact!} 
+                          potential={player.battingRatings.contactPot} 
+                        />
+                        <div className="ml-4 space-y-1">
+                          {player.battingRatings.babip !== null && (
+                            <RatingBar 
+                              label="BABIP" 
+                              current={player.battingRatings.babip!} 
+                              potential={player.battingRatings.babipPot} 
+                              small
+                            />
+                          )}
+                          {player.battingRatings.avoidK !== null && (
+                            <RatingBar 
+                              label="Avoid K's" 
+                              current={player.battingRatings.avoidK!} 
+                              potential={player.battingRatings.avoidKPot} 
+                              small
+                            />
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                   
-                  {/* Power */}
-                  {player.battingRatings?.power !== null && player.battingRatings && (
-                    <RatingBar 
-                      label="Power" 
-                      current={player.battingRatings.power!} 
-                      potential={player.battingRatings.powerPot} 
-                    />
-                  )}
-                  
-                  {/* Eye */}
-                  {player.battingRatings?.eye !== null && player.battingRatings && (
-                    <RatingBar 
-                      label="Eye" 
-                      current={player.battingRatings.eye!} 
-                      potential={player.battingRatings.eyePot} 
-                    />
-                  )}
-                  
-                  {/* Gap */}
-                  {player.battingRatings?.gap !== null && player.battingRatings && (
-                    <RatingBar 
-                      label="Gap" 
-                      current={player.battingRatings.gap!} 
-                      potential={player.battingRatings.gapPot} 
-                    />
-                  )}
+                  {/* Right column: Gap, Power, Eye */}
+                  <div className="space-y-4">
+                    {player.battingRatings?.gap !== null && player.battingRatings && (
+                      <RatingBar 
+                        label="Gap" 
+                        current={player.battingRatings.gap!} 
+                        potential={player.battingRatings.gapPot} 
+                      />
+                    )}
+                    
+                    {player.battingRatings?.power !== null && player.battingRatings && (
+                      <RatingBar 
+                        label="Power" 
+                        current={player.battingRatings.power!} 
+                        potential={player.battingRatings.powerPot} 
+                      />
+                    )}
+                    
+                    {player.battingRatings?.eye !== null && player.battingRatings && (
+                      <RatingBar 
+                        label="Eye" 
+                        current={player.battingRatings.eye!} 
+                        potential={player.battingRatings.eyePot} 
+                      />
+                    )}
+                  </div>
                 </div>
                 
                 {/* Speed with all sub-ratings stacked */}
@@ -812,8 +832,8 @@ function PlayerCard({
                 {/* Defense sections */}
                 {player.defenseRatings && (
                   <div className="space-y-4">
-                    {/* Catcher Defense */}
-                    {(player.defenseRatings.catcherAbility !== null || 
+                    {/* Catcher Defense - only show if player is a catcher */}
+                    {player.position === 'C' && (player.defenseRatings.catcherAbility !== null || 
                       player.defenseRatings.catcherFraming !== null || 
                       player.defenseRatings.catcherArm !== null || 
                       player.defenseRatings.catcher !== null) && (
