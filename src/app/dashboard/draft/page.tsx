@@ -409,6 +409,59 @@ export default function DraftBoardPage() {
   );
 }
 
+// Rating Bar Component with color-coded visualization
+function RatingBar({ 
+  label, 
+  current, 
+  potential, 
+  small = false 
+}: { 
+  label: string; 
+  current: number; 
+  potential: number | null | undefined;
+  small?: boolean;
+}) {
+  // Determine color based on current rating
+  const getRatingColor = (rating: number): string => {
+    if (rating >= 70) return 'bg-blue-500'; // Elite
+    if (rating >= 60) return 'bg-green-500'; // Very Good
+    if (rating >= 50) return 'bg-green-300'; // Good
+    if (rating >= 40) return 'bg-orange-400'; // Average
+    return 'bg-red-500'; // Poor
+  };
+  
+  const getTextColor = (rating: number): string => {
+    if (rating >= 70) return 'text-blue-600 dark:text-blue-400'; // Elite
+    if (rating >= 60) return 'text-green-600 dark:text-green-400'; // Very Good
+    if (rating >= 50) return 'text-green-500 dark:text-green-300'; // Good
+    if (rating >= 40) return 'text-orange-500 dark:text-orange-400'; // Average
+    return 'text-red-500 dark:text-red-400'; // Poor
+  };
+  
+  // Calculate percentage for bar fill (current out of potential, or current out of 80 if no potential)
+  const maxValue = potential || 80;
+  const percentage = Math.min((current / maxValue) * 100, 100);
+  
+  return (
+    <div className={small ? "text-xs" : ""}>
+      <div className="flex justify-between items-center mb-1">
+        <span className={`${small ? 'text-xs' : 'text-sm'} text-dugout-600 dark:text-dugout-400`}>
+          {label}
+        </span>
+        <span className={`${small ? 'text-xs' : 'text-sm'} font-semibold ${getTextColor(current)}`}>
+          {current}{potential ? `/${potential}` : ''}
+        </span>
+      </div>
+      <div className="w-full bg-dugout-200 dark:bg-dugout-700 rounded-full h-2">
+        <div 
+          className={`h-2 rounded-full transition-all ${getRatingColor(current)}`}
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function PlayerCard({ 
   player, 
   rank, 
@@ -564,339 +617,328 @@ function PlayerCard({
             {isPitcher ? (
               // Pitcher ratings
               <div className="space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {player.pitchingRatings?.stuff !== null && (
-                    <div className="text-center bg-white dark:bg-gray-800 p-3 rounded-lg">
-                      <div className="text-xs text-dugout-500 mb-1">STU</div>
-                      <div className="text-2xl font-bold text-dugout-900 dark:text-white">
-                        {player.pitchingRatings?.stuff}
-                      </div>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Stuff */}
+                  {player.pitchingRatings?.stuff !== null && player.pitchingRatings && (
+                    <RatingBar 
+                      label="Stuff" 
+                      current={player.pitchingRatings.stuff!} 
+                      potential={player.pitchingRatings.stuffPot} 
+                    />
                   )}
                   
-                  {/* Movement with sub-ratings */}
-                  {player.pitchingRatings?.movement !== null && (
-                    <div className="bg-white dark:bg-gray-800 p-3 rounded-lg">
-                      <div className="text-center mb-2">
-                        <div className="text-xs text-dugout-500 mb-1">MOV</div>
-                        <div className="text-2xl font-bold text-dugout-900 dark:text-white">
-                          {player.pitchingRatings?.movement}
-                        </div>
-                      </div>
-                      <div className="flex gap-2 justify-center text-xs">
-                        {player.pitchingRatings?.pBabip !== null && (
-                          <div className="text-center">
-                            <div className="text-dugout-400">PBABIP</div>
-                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
-                              {player.pitchingRatings?.pBabip}
-                            </div>
-                          </div>
+                  {/* Movement */}
+                  {player.pitchingRatings?.movement !== null && player.pitchingRatings && (
+                    <div className="space-y-2">
+                      <RatingBar 
+                        label="Movement" 
+                        current={player.pitchingRatings.movement!} 
+                        potential={player.pitchingRatings.movementPot} 
+                      />
+                      <div className="ml-4 space-y-1">
+                        {player.pitchingRatings.pBabip !== null && (
+                          <RatingBar 
+                            label="PBABIP" 
+                            current={player.pitchingRatings.pBabip!} 
+                            potential={player.pitchingRatings.pBabipPot} 
+                            small
+                          />
                         )}
-                        {player.pitchingRatings?.hrRate !== null && (
-                          <div className="text-center">
-                            <div className="text-dugout-400">HR</div>
-                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
-                              {player.pitchingRatings?.hrRate}
-                            </div>
-                          </div>
+                        {player.pitchingRatings.hrRate !== null && (
+                          <RatingBar 
+                            label="HR Rate" 
+                            current={player.pitchingRatings.hrRate!} 
+                            potential={player.pitchingRatings.hrRatePot} 
+                            small
+                          />
                         )}
                       </div>
                     </div>
                   )}
                   
-                  {player.pitchingRatings?.control !== null && (
-                    <div className="text-center bg-white dark:bg-gray-800 p-3 rounded-lg">
-                      <div className="text-xs text-dugout-500 mb-1">CON</div>
-                      <div className="text-2xl font-bold text-dugout-900 dark:text-white">
-                        {player.pitchingRatings?.control}
-                      </div>
-                    </div>
+                  {/* Control */}
+                  {player.pitchingRatings?.control !== null && player.pitchingRatings && (
+                    <RatingBar 
+                      label="Control" 
+                      current={player.pitchingRatings.control!} 
+                      potential={player.pitchingRatings.controlPot} 
+                    />
                   )}
                   
-                  {player.pitchingRatings?.stamina !== null && (
-                    <div className="text-center bg-white dark:bg-gray-800 p-3 rounded-lg">
-                      <div className="text-xs text-dugout-500 mb-1">STM</div>
-                      <div className="text-2xl font-bold text-dugout-900 dark:text-white">
-                        {player.pitchingRatings?.stamina}
-                      </div>
-                    </div>
+                  {/* Stamina */}
+                  {player.pitchingRatings?.stamina !== null && player.pitchingRatings && (
+                    <RatingBar 
+                      label="Stamina" 
+                      current={player.pitchingRatings.stamina!} 
+                      potential={null} 
+                    />
                   )}
                 </div>
+                
+                {/* Pitch Arsenal */}
+                {player.pitchArsenal && (() => {
+                  const pitches = [
+                    { name: 'Fastball', current: player.pitchArsenal.fastball, potential: player.pitchArsenal.fastballPot },
+                    { name: 'Changeup', current: player.pitchArsenal.changeup, potential: player.pitchArsenal.changeupPot },
+                    { name: 'Curveball', current: player.pitchArsenal.curveball, potential: player.pitchArsenal.curveballPot },
+                    { name: 'Slider', current: player.pitchArsenal.slider, potential: player.pitchArsenal.sliderPot },
+                    { name: 'Sinker', current: player.pitchArsenal.sinker, potential: player.pitchArsenal.sinkerPot },
+                    { name: 'Splitter', current: player.pitchArsenal.splitter, potential: player.pitchArsenal.splitterPot },
+                    { name: 'Cutter', current: player.pitchArsenal.cutter, potential: player.pitchArsenal.cutterPot },
+                    { name: 'Forkball', current: player.pitchArsenal.forkball, potential: player.pitchArsenal.forkballPot },
+                    { name: 'Circle Change', current: player.pitchArsenal.circleChange, potential: player.pitchArsenal.circleChangePot },
+                    { name: 'Screwball', current: player.pitchArsenal.screwball, potential: player.pitchArsenal.screwballPot },
+                    { name: 'Knuckle Curve', current: player.pitchArsenal.knuckleCurve, potential: player.pitchArsenal.knucleCurvePot },
+                    { name: 'Knuckleball', current: player.pitchArsenal.knuckleball, potential: player.pitchArsenal.knuckleballPot },
+                  ].filter(p => p.current !== null && p.current !== undefined);
+                  
+                  if (pitches.length === 0) return null;
+                  
+                  return (
+                    <div className="bg-white dark:bg-gray-800 p-4 rounded-lg">
+                      <h5 className="text-xs font-semibold text-dugout-700 dark:text-dugout-300 mb-3">
+                        Pitch Arsenal ({pitches.length} {pitches.length === 1 ? 'Pitch' : 'Pitches'})
+                      </h5>
+                      <div className="space-y-2">
+                        {pitches.map(pitch => (
+                          <RatingBar 
+                            key={pitch.name}
+                            label={pitch.name} 
+                            current={pitch.current!} 
+                            potential={pitch.potential} 
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             ) : (
               // Batter ratings
               <div className="space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                  {/* Contact with sub-ratings BABIP and K's */}
-                  {player.battingRatings?.contact !== null && (
-                    <div className="bg-white dark:bg-gray-800 p-3 rounded-lg">
-                      <div className="text-center mb-2">
-                        <div className="text-xs text-dugout-500 mb-1">CON</div>
-                        <div className="text-2xl font-bold text-dugout-900 dark:text-white">
-                          {player.battingRatings?.contact}
-                        </div>
-                      </div>
-                      <div className="flex gap-2 justify-center text-xs">
-                        {player.battingRatings?.babip !== null && (
-                          <div className="text-center">
-                            <div className="text-dugout-400">BABIP</div>
-                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
-                              {player.battingRatings?.babip}
-                            </div>
-                          </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* Contact with sub-ratings */}
+                  {player.battingRatings?.contact !== null && player.battingRatings && (
+                    <div className="space-y-2">
+                      <RatingBar 
+                        label="Contact" 
+                        current={player.battingRatings.contact!} 
+                        potential={player.battingRatings.contactPot} 
+                      />
+                      <div className="ml-4 space-y-1">
+                        {player.battingRatings.babip !== null && (
+                          <RatingBar 
+                            label="BABIP" 
+                            current={player.battingRatings.babip!} 
+                            potential={player.battingRatings.babipPot} 
+                            small
+                          />
                         )}
-                        {player.battingRatings?.avoidK !== null && (
-                          <div className="text-center">
-                            <div className="text-dugout-400">K's</div>
-                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
-                              {player.battingRatings?.avoidK}
-                            </div>
-                          </div>
+                        {player.battingRatings.avoidK !== null && (
+                          <RatingBar 
+                            label="Avoid K's" 
+                            current={player.battingRatings.avoidK!} 
+                            potential={player.battingRatings.avoidKPot} 
+                            small
+                          />
                         )}
                       </div>
                     </div>
                   )}
                   
-                  {player.battingRatings?.power !== null && (
-                    <div className="text-center bg-white dark:bg-gray-800 p-3 rounded-lg">
-                      <div className="text-xs text-dugout-500 mb-1">POW</div>
-                      <div className="text-2xl font-bold text-dugout-900 dark:text-white">
-                        {player.battingRatings?.power}
-                      </div>
-                    </div>
+                  {/* Power */}
+                  {player.battingRatings?.power !== null && player.battingRatings && (
+                    <RatingBar 
+                      label="Power" 
+                      current={player.battingRatings.power!} 
+                      potential={player.battingRatings.powerPot} 
+                    />
                   )}
                   
-                  {player.battingRatings?.eye !== null && (
-                    <div className="text-center bg-white dark:bg-gray-800 p-3 rounded-lg">
-                      <div className="text-xs text-dugout-500 mb-1">EYE</div>
-                      <div className="text-2xl font-bold text-dugout-900 dark:text-white">
-                        {player.battingRatings?.eye}
-                      </div>
-                    </div>
+                  {/* Eye */}
+                  {player.battingRatings?.eye !== null && player.battingRatings && (
+                    <RatingBar 
+                      label="Eye" 
+                      current={player.battingRatings.eye!} 
+                      potential={player.battingRatings.eyePot} 
+                    />
                   )}
                   
-                  {player.battingRatings?.gap !== null && (
-                    <div className="text-center bg-white dark:bg-gray-800 p-3 rounded-lg">
-                      <div className="text-xs text-dugout-500 mb-1">GAP</div>
-                      <div className="text-2xl font-bold text-dugout-900 dark:text-white">
-                        {player.battingRatings?.gap}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Speed with all sub-ratings */}
-                  {player.speedRatings?.speed !== null && (
-                    <div className="bg-white dark:bg-gray-800 p-3 rounded-lg">
-                      <div className="text-center mb-2">
-                        <div className="text-xs text-dugout-500 mb-1">SPD</div>
-                        <div className="text-2xl font-bold text-dugout-900 dark:text-white">
-                          {player.speedRatings?.speed}
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-1 text-xs">
-                        {player.speedRatings?.stealingAggression !== null && (
-                          <div className="text-center">
-                            <div className="text-dugout-400">SR</div>
-                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
-                              {player.speedRatings?.stealingAggression}
-                            </div>
-                          </div>
-                        )}
-                        {player.speedRatings?.stealingAbility !== null && (
-                          <div className="text-center">
-                            <div className="text-dugout-400">STE</div>
-                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
-                              {player.speedRatings?.stealingAbility}
-                            </div>
-                          </div>
-                        )}
-                        {player.speedRatings?.baserunning !== null && (
-                          <div className="text-center col-span-2">
-                            <div className="text-dugout-400">RUN</div>
-                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
-                              {player.speedRatings?.baserunning}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                  {/* Gap */}
+                  {player.battingRatings?.gap !== null && player.battingRatings && (
+                    <RatingBar 
+                      label="Gap" 
+                      current={player.battingRatings.gap!} 
+                      potential={player.battingRatings.gapPot} 
+                    />
                   )}
                 </div>
                 
-                {/* Defense section with all ratings and position potentials */}
-                {player.defenseRatings && (
+                {/* Speed with all sub-ratings stacked */}
+                {player.speedRatings?.speed !== null && player.speedRatings && (
                   <div className="bg-white dark:bg-gray-800 p-4 rounded-lg">
-                    <h5 className="text-xs font-semibold text-dugout-700 dark:text-dugout-300 mb-3">Defense</h5>
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 text-xs">
-                      {/* Defensive ratings */}
-                      {player.defenseRatings.catcherAbility !== null && (
-                        <div className="text-center">
-                          <div className="text-dugout-400">C Ability</div>
-                          <div className="font-semibold text-dugout-700 dark:text-dugout-300">
-                            {player.defenseRatings.catcherAbility}
-                          </div>
-                        </div>
+                    <h5 className="text-xs font-semibold text-dugout-700 dark:text-dugout-300 mb-3">Speed</h5>
+                    <div className="space-y-2">
+                      <RatingBar 
+                        label="Speed" 
+                        current={player.speedRatings.speed!} 
+                        potential={null} 
+                      />
+                      {player.speedRatings.stealingAggression !== null && (
+                        <RatingBar 
+                          label="Stealing Aggression" 
+                          current={player.speedRatings.stealingAggression!} 
+                          potential={null} 
+                        />
                       )}
-                      {player.defenseRatings.catcherArm !== null && (
-                        <div className="text-center">
-                          <div className="text-dugout-400">C Arm</div>
-                          <div className="font-semibold text-dugout-700 dark:text-dugout-300">
-                            {player.defenseRatings.catcherArm}
-                          </div>
-                        </div>
+                      {player.speedRatings.stealingAbility !== null && (
+                        <RatingBar 
+                          label="Stealing Ability" 
+                          current={player.speedRatings.stealingAbility!} 
+                          potential={null} 
+                        />
                       )}
-                      {player.defenseRatings.infieldRange !== null && (
-                        <div className="text-center">
-                          <div className="text-dugout-400">IF Range</div>
-                          <div className="font-semibold text-dugout-700 dark:text-dugout-300">
-                            {player.defenseRatings.infieldRange}
-                          </div>
-                        </div>
-                      )}
-                      {player.defenseRatings.infieldError !== null && (
-                        <div className="text-center">
-                          <div className="text-dugout-400">IF Error</div>
-                          <div className="font-semibold text-dugout-700 dark:text-dugout-300">
-                            {player.defenseRatings.infieldError}
-                          </div>
-                        </div>
-                      )}
-                      {player.defenseRatings.infieldArm !== null && (
-                        <div className="text-center">
-                          <div className="text-dugout-400">IF Arm</div>
-                          <div className="font-semibold text-dugout-700 dark:text-dugout-300">
-                            {player.defenseRatings.infieldArm}
-                          </div>
-                        </div>
-                      )}
-                      {player.defenseRatings.outfieldRange !== null && (
-                        <div className="text-center">
-                          <div className="text-dugout-400">OF Range</div>
-                          <div className="font-semibold text-dugout-700 dark:text-dugout-300">
-                            {player.defenseRatings.outfieldRange}
-                          </div>
-                        </div>
-                      )}
-                      {player.defenseRatings.outfieldError !== null && (
-                        <div className="text-center">
-                          <div className="text-dugout-400">OF Error</div>
-                          <div className="font-semibold text-dugout-700 dark:text-dugout-300">
-                            {player.defenseRatings.outfieldError}
-                          </div>
-                        </div>
-                      )}
-                      {player.defenseRatings.outfieldArm !== null && (
-                        <div className="text-center">
-                          <div className="text-dugout-400">OF Arm</div>
-                          <div className="font-semibold text-dugout-700 dark:text-dugout-300">
-                            {player.defenseRatings.outfieldArm}
-                          </div>
-                        </div>
-                      )}
-                      {player.defenseRatings.turnDoublePlay !== null && (
-                        <div className="text-center">
-                          <div className="text-dugout-400">Turn DP</div>
-                          <div className="font-semibold text-dugout-700 dark:text-dugout-300">
-                            {player.defenseRatings.turnDoublePlay}
-                          </div>
-                        </div>
+                      {player.speedRatings.baserunning !== null && (
+                        <RatingBar 
+                          label="Baserunning" 
+                          current={player.speedRatings.baserunning!} 
+                          potential={null} 
+                        />
                       )}
                     </div>
-                    
-                    {/* Position ratings and potentials */}
-                    <div className="mt-3 pt-3 border-t border-dugout-200 dark:border-dugout-700">
-                      <div className="text-xs font-semibold text-dugout-600 dark:text-dugout-400 mb-2">Position Ratings</div>
-                      <div className="grid grid-cols-4 md:grid-cols-8 gap-2 text-xs">
-                        {player.defenseRatings.catcher !== null && (
-                          <div className="text-center">
-                            <div className="text-dugout-400">C</div>
-                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
-                              {player.defenseRatings.catcher}
-                              {player.defenseRatings.catcherPot && (
-                                <span className="text-dugout-500">/{player.defenseRatings.catcherPot}</span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                        {player.defenseRatings.firstBase !== null && (
-                          <div className="text-center">
-                            <div className="text-dugout-400">1B</div>
-                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
-                              {player.defenseRatings.firstBase}
-                              {player.defenseRatings.firstBasePot && (
-                                <span className="text-dugout-500">/{player.defenseRatings.firstBasePot}</span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                        {player.defenseRatings.secondBase !== null && (
-                          <div className="text-center">
-                            <div className="text-dugout-400">2B</div>
-                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
-                              {player.defenseRatings.secondBase}
-                              {player.defenseRatings.secondBasePot && (
-                                <span className="text-dugout-500">/{player.defenseRatings.secondBasePot}</span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                        {player.defenseRatings.thirdBase !== null && (
-                          <div className="text-center">
-                            <div className="text-dugout-400">3B</div>
-                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
-                              {player.defenseRatings.thirdBase}
-                              {player.defenseRatings.thirdBasePot && (
-                                <span className="text-dugout-500">/{player.defenseRatings.thirdBasePot}</span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                        {player.defenseRatings.shortstop !== null && (
-                          <div className="text-center">
-                            <div className="text-dugout-400">SS</div>
-                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
-                              {player.defenseRatings.shortstop}
-                              {player.defenseRatings.shortstopPot && (
-                                <span className="text-dugout-500">/{player.defenseRatings.shortstopPot}</span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                        {player.defenseRatings.leftField !== null && (
-                          <div className="text-center">
-                            <div className="text-dugout-400">LF</div>
-                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
-                              {player.defenseRatings.leftField}
-                              {player.defenseRatings.leftFieldPot && (
-                                <span className="text-dugout-500">/{player.defenseRatings.leftFieldPot}</span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                        {player.defenseRatings.centerField !== null && (
-                          <div className="text-center">
-                            <div className="text-dugout-400">CF</div>
-                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
-                              {player.defenseRatings.centerField}
-                              {player.defenseRatings.centerFieldPot && (
-                                <span className="text-dugout-500">/{player.defenseRatings.centerFieldPot}</span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                        {player.defenseRatings.rightField !== null && (
-                          <div className="text-center">
-                            <div className="text-dugout-400">RF</div>
-                            <div className="font-semibold text-dugout-700 dark:text-dugout-300">
-                              {player.defenseRatings.rightField}
-                              {player.defenseRatings.rightFieldPot && (
-                                <span className="text-dugout-500">/{player.defenseRatings.rightFieldPot}</span>
-                              )}
-                            </div>
-                          </div>
-                        )}
+                  </div>
+                )}
+                
+                {/* Defense sections */}
+                {player.defenseRatings && (
+                  <div className="space-y-4">
+                    {/* Catcher Defense */}
+                    {(player.defenseRatings.catcherAbility !== null || 
+                      player.defenseRatings.catcherFraming !== null || 
+                      player.defenseRatings.catcherArm !== null || 
+                      player.defenseRatings.catcher !== null) && (
+                      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg">
+                        <h5 className="text-xs font-semibold text-dugout-700 dark:text-dugout-300 mb-3">Catcher Defense</h5>
+                        <div className="space-y-2">
+                          {player.defenseRatings.catcherAbility !== null && (
+                            <RatingBar label="Blocking" current={player.defenseRatings.catcherAbility} potential={null} />
+                          )}
+                          {player.defenseRatings.catcherFraming !== null && (
+                            <RatingBar label="Framing" current={player.defenseRatings.catcherFraming} potential={null} />
+                          )}
+                          {player.defenseRatings.catcherArm !== null && (
+                            <RatingBar label="C Arm" current={player.defenseRatings.catcherArm} potential={null} />
+                          )}
+                          {player.defenseRatings.catcher !== null && (
+                            <RatingBar 
+                              label="C Position Rating" 
+                              current={player.defenseRatings.catcher} 
+                              potential={player.defenseRatings.catcherPot} 
+                            />
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    )}
+                    
+                    {/* Infield Defense */}
+                    {(player.defenseRatings.infieldRange !== null || 
+                      player.defenseRatings.infieldError !== null || 
+                      player.defenseRatings.infieldArm !== null || 
+                      player.defenseRatings.turnDoublePlay !== null ||
+                      player.defenseRatings.firstBase !== null ||
+                      player.defenseRatings.secondBase !== null ||
+                      player.defenseRatings.thirdBase !== null ||
+                      player.defenseRatings.shortstop !== null) && (
+                      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg">
+                        <h5 className="text-xs font-semibold text-dugout-700 dark:text-dugout-300 mb-3">Infield Defense</h5>
+                        <div className="space-y-2">
+                          {player.defenseRatings.infieldRange !== null && (
+                            <RatingBar label="IF Range" current={player.defenseRatings.infieldRange} potential={null} />
+                          )}
+                          {player.defenseRatings.infieldError !== null && (
+                            <RatingBar label="IF Error" current={player.defenseRatings.infieldError} potential={null} />
+                          )}
+                          {player.defenseRatings.infieldArm !== null && (
+                            <RatingBar label="IF Arm" current={player.defenseRatings.infieldArm} potential={null} />
+                          )}
+                          {player.defenseRatings.turnDoublePlay !== null && (
+                            <RatingBar label="Turn DP" current={player.defenseRatings.turnDoublePlay} potential={null} />
+                          )}
+                          {player.defenseRatings.firstBase !== null && (
+                            <RatingBar 
+                              label="1B Position Rating" 
+                              current={player.defenseRatings.firstBase} 
+                              potential={player.defenseRatings.firstBasePot} 
+                            />
+                          )}
+                          {player.defenseRatings.secondBase !== null && (
+                            <RatingBar 
+                              label="2B Position Rating" 
+                              current={player.defenseRatings.secondBase} 
+                              potential={player.defenseRatings.secondBasePot} 
+                            />
+                          )}
+                          {player.defenseRatings.thirdBase !== null && (
+                            <RatingBar 
+                              label="3B Position Rating" 
+                              current={player.defenseRatings.thirdBase} 
+                              potential={player.defenseRatings.thirdBasePot} 
+                            />
+                          )}
+                          {player.defenseRatings.shortstop !== null && (
+                            <RatingBar 
+                              label="SS Position Rating" 
+                              current={player.defenseRatings.shortstop} 
+                              potential={player.defenseRatings.shortstopPot} 
+                            />
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Outfield Defense */}
+                    {(player.defenseRatings.outfieldRange !== null || 
+                      player.defenseRatings.outfieldError !== null || 
+                      player.defenseRatings.outfieldArm !== null ||
+                      player.defenseRatings.leftField !== null ||
+                      player.defenseRatings.centerField !== null ||
+                      player.defenseRatings.rightField !== null) && (
+                      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg">
+                        <h5 className="text-xs font-semibold text-dugout-700 dark:text-dugout-300 mb-3">Outfield Defense</h5>
+                        <div className="space-y-2">
+                          {player.defenseRatings.outfieldRange !== null && (
+                            <RatingBar label="OF Range" current={player.defenseRatings.outfieldRange} potential={null} />
+                          )}
+                          {player.defenseRatings.outfieldError !== null && (
+                            <RatingBar label="OF Error" current={player.defenseRatings.outfieldError} potential={null} />
+                          )}
+                          {player.defenseRatings.outfieldArm !== null && (
+                            <RatingBar label="OF Arm" current={player.defenseRatings.outfieldArm} potential={null} />
+                          )}
+                          {player.defenseRatings.leftField !== null && (
+                            <RatingBar 
+                              label="LF Position Rating" 
+                              current={player.defenseRatings.leftField} 
+                              potential={player.defenseRatings.leftFieldPot} 
+                            />
+                          )}
+                          {player.defenseRatings.centerField !== null && (
+                            <RatingBar 
+                              label="CF Position Rating" 
+                              current={player.defenseRatings.centerField} 
+                              potential={player.defenseRatings.centerFieldPot} 
+                            />
+                          )}
+                          {player.defenseRatings.rightField !== null && (
+                            <RatingBar 
+                              label="RF Position Rating" 
+                              current={player.defenseRatings.rightField} 
+                              potential={player.defenseRatings.rightFieldPot} 
+                            />
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
