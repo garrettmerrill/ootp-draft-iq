@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -20,7 +20,6 @@ import { Download, Settings2, Loader2 } from 'lucide-react';
 import { TierSection } from './TierSection';
 import { RenameTiersModal } from './RenameTiersModal';
 import { Player, TierNames, DEFAULT_TIER_NAMES } from '@/types';
-import { cn } from '@/lib/utils';
 
 interface RankedPlayer {
   id: string;
@@ -53,6 +52,7 @@ export function MyRankings({
   const [showRenameTiers, setShowRenameTiers] = useState(false);
   const [collapsedTiers, setCollapsedTiers] = useState<Set<number>>(new Set());
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeTier, setActiveTier] = useState<number | null>(null);
   const [overTier, setOverTier] = useState<number | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -76,7 +76,6 @@ export function MyRankings({
     5: [],
   };
   
-  // Also track drafted players separately
   const draftedRankings: RankedPlayer[] = [];
   
   rankings.forEach(r => {
@@ -87,12 +86,10 @@ export function MyRankings({
     }
   });
 
-  // Sort each tier by rankInTier
   Object.values(rankingsByTier).forEach(tierRankings => {
     tierRankings.sort((a, b) => a.rankInTier - b.rankInTier);
   });
 
-  // Calculate overall ranks (excluding drafted)
   let overallRank = 1;
   const tierStartRanks: Record<number, number> = {};
   [1, 2, 3, 4, 5].forEach(tier => {
@@ -100,11 +97,15 @@ export function MyRankings({
     overallRank += rankingsByTier[tier].length;
   });
 
-  // Count non-drafted players
   const totalRanked = rankings.filter(r => !r.player.isDrafted).length;
 
   function handleDragStart(event: DragStartEvent) {
-    setActiveId(event.active.id as string);
+    const { active } = event;
+    setActiveId(active.id as string);
+    const activeData = active.data.current;
+    if (activeData?.tier) {
+      setActiveTier(activeData.tier);
+    }
   }
 
   function handleDragOver(event: DragOverEvent) {
@@ -126,6 +127,7 @@ export function MyRankings({
   async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     setActiveId(null);
+    setActiveTier(null);
     setOverTier(null);
 
     if (!over) return;
@@ -136,33 +138,28 @@ export function MyRankings({
     if (!activeData) return;
 
     const activeRanking = activeData.ranking as RankedPlayer;
-    const activeTier = activeData.tier as number;
+    const sourceTier = activeData.tier as number;
 
     let targetTier: number;
     let targetRankInTier: number;
 
     if (overData?.type === 'tier') {
-      // Dropped on tier header - add to end of tier
       targetTier = overData.tier;
       targetRankInTier = rankingsByTier[targetTier].length + 1;
     } else if (overData?.ranking) {
-      // Dropped on another ranking
       const overRanking = overData.ranking as RankedPlayer;
       targetTier = overData.tier;
       
-      if (activeTier === targetTier) {
-        // Same tier - just reorder
+      if (sourceTier === targetTier) {
         targetRankInTier = overRanking.rankInTier;
       } else {
-        // Different tier - insert at that position
         targetRankInTier = overRanking.rankInTier;
       }
     } else {
       return;
     }
 
-    // Don't do anything if nothing changed
-    if (activeTier === targetTier && activeRanking.rankInTier === targetRankInTier) {
+    if (sourceTier === targetTier && activeRanking.rankInTier === targetRankInTier) {
       return;
     }
 
@@ -218,7 +215,6 @@ export function MyRankings({
 
   return (
     <div className="space-y-4">
-      {/* Header actions */}
       <div className="flex items-center justify-between">
         <div className="text-sm text-dugout-500 dark:text-dugout-400">
           {totalRanked} {totalRanked === 1 ? 'player' : 'players'} ranked
@@ -281,10 +277,10 @@ export function MyRankings({
                 tierNames={tierNames}
                 isDragOver={overTier === tier}
                 activeId={activeId}
+                activeTier={activeTier}
               />
             ))}
 
-            {/* Drafted section */}
             {draftedRankings.length > 0 && (
               <div className="rounded-lg border border-dugout-200 dark:border-dugout-700 overflow-hidden opacity-60">
                 <div className="px-4 py-3 bg-dugout-100 dark:bg-dugout-800">
@@ -320,9 +316,12 @@ export function MyRankings({
             )}
           </div>
 
-          <DragOverlay>
+          <DragOverlay dropAnimation={{
+            duration: 200,
+            easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)',
+          }}>
             {activeRanking ? (
-              <div className="bg-white dark:bg-dugout-800 rounded-lg shadow-xl border border-dugout-200 dark:border-dugout-700 px-4 py-3">
+              <div className="bg-white dark:bg-dugout-800 rounded-lg shadow-xl border-2 border-diamond-500 px-4 py-3 opacity-95">
                 <div className="flex items-center gap-3">
                   <span className="font-medium text-dugout-900 dark:text-white">
                     {activeRanking.player.name}

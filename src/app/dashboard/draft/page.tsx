@@ -5,11 +5,11 @@ import { useSession } from 'next-auth/react';
 import { 
   Search, ChevronDown, ChevronUp, RefreshCw,
   Target, Sparkles, AlertTriangle, CheckCircle,
-  SlidersHorizontal
+  SlidersHorizontal, X, Plus
 } from 'lucide-react';
 import { cn, parseNaturalLanguageQuery, getTierColor } from '@/lib/utils';
-import { Player, PlayerFilters, DEFAULT_FILTERS, POSITIONS, Tier, TierNames, DEFAULT_TIER_NAMES } from '@/types';
-import { AddToRankingsButton, NotInterestedButton, MyRankings } from '@/components/draft';
+import { Player, PlayerFilters, DEFAULT_FILTERS, POSITIONS, Tier, TierNames, DEFAULT_TIER_NAMES, BattingRatings, PitchingRatings, PitchArsenal, DefenseRatings, SpeedRatings } from '@/types';
+import { NotInterestedButton, MyRankings } from '@/components/draft';
 
 interface RankedPlayer {
   id: string;
@@ -42,7 +42,6 @@ export default function DraftBoardPage() {
 
   const COOLDOWN_MS = 5 * 60 * 1000;
 
-  // Cooldown timer
   useEffect(() => {
     if (lastSyncTime) {
       const interval = setInterval(() => {
@@ -55,7 +54,6 @@ export default function DraftBoardPage() {
     }
   }, [lastSyncTime]);
 
-  // Fetch players
   useEffect(() => {
     async function fetchPlayers() {
       try {
@@ -71,7 +69,6 @@ export default function DraftBoardPage() {
     fetchPlayers();
   }, []);
 
-  // Fetch rankings and tier names
   useEffect(() => {
     async function fetchRankingsAndSettings() {
       try {
@@ -92,7 +89,6 @@ export default function DraftBoardPage() {
     fetchRankingsAndSettings();
   }, []);
 
-  // Natural language search
   useEffect(() => {
     if (searchQuery.length > 3) {
       const parsed = parseNaturalLanguageQuery(searchQuery);
@@ -118,7 +114,6 @@ export default function DraftBoardPage() {
     }
   }, [searchQuery]);
 
-  // Sync draft
   async function syncDraft() {
     if (cooldownRemaining > 0) {
       alert(`⏱️ Please wait ${Math.ceil(cooldownRemaining / 1000)} seconds before syncing again.`);
@@ -152,7 +147,6 @@ export default function DraftBoardPage() {
     }
   }
 
-  // Filter players
   const filteredPlayers = useMemo(() => {
     let result = [...players];
     if (filters.positions.length > 0) result = result.filter(p => filters.positions.includes(p.position));
@@ -186,7 +180,6 @@ export default function DraftBoardPage() {
     return result;
   }, [players, filters, sortBy, sortOrder]);
 
-  // Handlers
   const handleAddToRankings = useCallback(async (playerId: string, tier: number) => {
     const res = await fetch('/api/rankings', {
       method: 'POST',
@@ -244,7 +237,6 @@ export default function DraftBoardPage() {
     setTierNames(newTierNames);
   }, []);
 
-  // Count rankings for tab badge
   const rankingsCount = rankings.filter(r => !r.player.isDrafted).length;
 
   if (loading) {
@@ -270,7 +262,6 @@ export default function DraftBoardPage() {
     <div className="space-y-0">
       {/* Sticky Header */}
       <div className="sticky top-0 z-40 bg-dugout-50 dark:bg-dugout-950 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pb-4 pt-2 border-b border-dugout-200 dark:border-dugout-800">
-        {/* Title row */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
           <div>
             <h1 className="text-2xl font-bold text-dugout-900 dark:text-white">Draft Board</h1>
@@ -288,7 +279,6 @@ export default function DraftBoardPage() {
           </button>
         </div>
 
-        {/* Tabs */}
         <div className="flex items-center gap-4 mb-4">
           <button
             onClick={() => setActiveTab('all')}
@@ -322,7 +312,6 @@ export default function DraftBoardPage() {
           </button>
         </div>
 
-        {/* Search and Filters - Only show on All Players tab */}
         {activeTab === 'all' && (
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row gap-4">
@@ -420,7 +409,6 @@ export default function DraftBoardPage() {
         )}
       </div>
 
-      {/* Content area with padding for sticky header */}
       <div className="pt-6">
         {activeTab === 'all' ? (
           <div className="space-y-4">
@@ -433,6 +421,7 @@ export default function DraftBoardPage() {
                 onToggle={() => setExpandedPlayer(expandedPlayer === player.id ? null : player.id)}
                 tierNames={tierNames}
                 onAddToRankings={handleAddToRankings}
+                onRemoveFromRankings={handleRemoveFromRankings}
                 onToggleNotInterested={handleToggleNotInterested}
               />
             ))}
@@ -458,7 +447,30 @@ export default function DraftBoardPage() {
   );
 }
 
-// PlayerCard component (simplified for space - keeping core functionality)
+// Helper to get rating color
+function getRatingColorClass(rating: number | null): string {
+  if (rating === null) return 'text-dugout-400';
+  if (rating >= 70) return 'text-elite';
+  if (rating >= 60) return 'text-veryGood';
+  if (rating >= 50) return 'text-good';
+  if (rating >= 40) return 'text-average';
+  return 'text-filler';
+}
+
+// Rating display component
+function RatingBox({ label, current, potential }: { label: string; current: number | null; potential: number | null }) {
+  return (
+    <div className="text-center">
+      <div className="text-xs text-dugout-500 mb-1">{label}</div>
+      <div className="flex items-center justify-center gap-1">
+        <span className={cn('font-medium', getRatingColorClass(current))}>{current ?? '-'}</span>
+        <span className="text-dugout-400">/</span>
+        <span className={cn('font-bold', getRatingColorClass(potential))}>{potential ?? '-'}</span>
+      </div>
+    </div>
+  );
+}
+
 function PlayerCard({ 
   player, 
   rank, 
@@ -466,6 +478,7 @@ function PlayerCard({
   onToggle,
   tierNames,
   onAddToRankings,
+  onRemoveFromRankings,
   onToggleNotInterested,
 }: { 
   player: Player; 
@@ -474,8 +487,11 @@ function PlayerCard({
   onToggle: () => void;
   tierNames: TierNames;
   onAddToRankings: (playerId: string, tier: number) => Promise<void>;
+  onRemoveFromRankings: (playerId: string) => Promise<void>;
   onToggleNotInterested: (playerId: string, isNotInterested: boolean) => Promise<void>;
 }) {
+  const [showTierMenu, setShowTierMenu] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
   const isPitcher = ['SP', 'RP', 'CL'].includes(player.position);
   
   const getTierIndicatorClass = (tier: Tier | null) => {
@@ -488,64 +504,114 @@ function PlayerCard({
     }
   };
 
+  async function handleAddToTier(tier: number) {
+    setIsAdding(true);
+    try {
+      await onAddToRankings(player.id, tier);
+    } finally {
+      setIsAdding(false);
+      setShowTierMenu(false);
+    }
+  }
+
   return (
     <div className={cn('card overflow-hidden transition-all', player.isDrafted && 'opacity-50', player.isNotInterested && 'opacity-40')}>
-      <div onClick={onToggle} className="flex items-center gap-4 p-4 cursor-pointer hover:bg-dugout-50 dark:hover:bg-dugout-800/50">
-        <div className={cn('h-12 w-1 rounded-full', getTierIndicatorClass(player.tier))} />
-        <div className="w-8 text-center">
-          <span className="text-lg font-bold text-dugout-400">#{rank}</span>
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={cn("font-semibold", player.isNotInterested ? "text-dugout-500 line-through" : "text-dugout-900 dark:text-white")}>
-              {player.name}
-            </span>
-            {player.nickname && <span className="text-sm text-dugout-500">&quot;{player.nickname}&quot;</span>}
-            {player.isSleeper && <span className="badge-sleeper"><Sparkles className="w-3 h-3 mr-1" />Sleeper</span>}
-            {player.isTwoWay && <span className="badge bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">Two-Way</span>}
+      {/* Header row - always visible */}
+      <div className="flex items-center gap-4 p-4">
+        {/* Clickable area for expanding */}
+        <div 
+          onClick={onToggle}
+          className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer hover:bg-dugout-50 dark:hover:bg-dugout-800/50 -m-4 p-4 pr-0"
+        >
+          <div className={cn('h-12 w-1 rounded-full flex-shrink-0', getTierIndicatorClass(player.tier))} />
+          <div className="w-8 text-center flex-shrink-0">
+            <span className="text-lg font-bold text-dugout-400">#{rank}</span>
           </div>
-          <div className="flex items-center gap-2 mt-1 text-sm text-dugout-500 dark:text-dugout-400">
-            <span className="font-medium">{isPitcher ? `${player.throws === 'L' ? 'LHP' : 'RHP'} (${player.position})` : player.position}</span>
-            <span>•</span><span>Age {player.age}</span>
-            <span>•</span><span>{player.highSchoolClass}</span>
-            {!isPitcher && <><span>•</span><span>Bats: {player.bats}</span></>}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={cn("font-semibold", player.isNotInterested ? "text-dugout-500 line-through" : "text-dugout-900 dark:text-white")}>
+                {player.name}
+              </span>
+              {player.nickname && <span className="text-sm text-dugout-500">&quot;{player.nickname}&quot;</span>}
+              {player.isSleeper && <span className="badge-sleeper"><Sparkles className="w-3 h-3 mr-1" />Sleeper</span>}
+              {player.isTwoWay && <span className="badge bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">Two-Way</span>}
+            </div>
+            <div className="flex items-center gap-2 mt-1 text-sm text-dugout-500 dark:text-dugout-400">
+              <span className="font-medium">{isPitcher ? `${player.throws === 'L' ? 'LHP' : 'RHP'} (${player.position})` : player.position}</span>
+              <span>•</span><span>Age {player.age}</span>
+              <span>•</span><span>{player.highSchoolClass}</span>
+              {!isPitcher && <><span>•</span><span>Bats: {player.bats}</span></>}
+            </div>
+          </div>
+          <div className="hidden md:flex items-center gap-6 text-sm flex-shrink-0">
+            <div className="text-center">
+              <div className="text-dugout-400 text-xs">OVR/POT</div>
+              <div className="font-bold text-dugout-900 dark:text-white">{player.overall}/{player.potential}</div>
+            </div>
+            <div className="text-center">
+              <div className="text-dugout-400 text-xs">Score</div>
+              <div className="font-bold text-dugout-900 dark:text-white">{player.compositeScore?.toFixed(1)}</div>
+            </div>
+            <div className="text-center min-w-[80px]">
+              <div className="text-dugout-400 text-xs">Demand</div>
+              <div className="font-medium text-dugout-700 dark:text-dugout-300">{player.demandAmount || 'N/A'}</div>
+            </div>
+          </div>
+          <div className="hidden lg:flex items-center gap-1 flex-wrap max-w-[200px] flex-shrink-0">
+            {player.archetypes.slice(0, 2).map(arch => (
+              <span key={arch} className="badge bg-dugout-100 dark:bg-dugout-800 text-dugout-600 dark:text-dugout-400 text-xs">{arch}</span>
+            ))}
+            {player.archetypes.length > 2 && <span className="text-xs text-dugout-400">+{player.archetypes.length - 2}</span>}
+          </div>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {player.redFlags.length > 0 && <span className="text-redFlag" title={player.redFlags.join(', ')}><AlertTriangle className="w-4 h-4" /></span>}
+            {player.greenFlags.length > 0 && <span className="text-greenFlag" title={player.greenFlags.join(', ')}><CheckCircle className="w-4 h-4" /></span>}
+          </div>
+          {player.isDrafted && <div className="text-sm text-dugout-500 flex-shrink-0">R{player.draftRound}P{player.draftPick}</div>}
+          <div className="text-dugout-400 flex-shrink-0">
+            {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
           </div>
         </div>
-        <div className="flex items-center gap-6 text-sm">
-          <div className="text-center">
-            <div className="text-dugout-400 text-xs">OVR/POT</div>
-            <div className="font-bold text-dugout-900 dark:text-white">{player.overall}/{player.potential}</div>
-          </div>
-          <div className="text-center">
-            <div className="text-dugout-400 text-xs">Score</div>
-            <div className="font-bold text-dugout-900 dark:text-white">{player.compositeScore?.toFixed(1)}</div>
-          </div>
-          <div className="text-center min-w-[80px]">
-            <div className="text-dugout-400 text-xs">Demand</div>
-            <div className="font-medium text-dugout-700 dark:text-dugout-300">{player.demandAmount || 'N/A'}</div>
-          </div>
-        </div>
-        <div className="hidden lg:flex items-center gap-1 flex-wrap max-w-[200px]">
-          {player.archetypes.slice(0, 2).map(arch => (
-            <span key={arch} className="badge bg-dugout-100 dark:bg-dugout-800 text-dugout-600 dark:text-dugout-400 text-xs">{arch}</span>
-          ))}
-          {player.archetypes.length > 2 && <span className="text-xs text-dugout-400">+{player.archetypes.length - 2}</span>}
-        </div>
-        <div className="flex items-center gap-1">
-          {player.redFlags.length > 0 && <span className="text-redFlag" title={player.redFlags.join(', ')}><AlertTriangle className="w-4 h-4" /></span>}
-          {player.greenFlags.length > 0 && <span className="text-greenFlag" title={player.greenFlags.join(', ')}><CheckCircle className="w-4 h-4" /></span>}
-        </div>
-        {player.isDrafted && <div className="text-sm text-dugout-500">Drafted: R{player.draftRound}, P{player.draftPick}</div>}
         
-        {/* Action buttons */}
-        <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+        {/* Action buttons - outside clickable area */}
+        <div className="flex items-center gap-2 flex-shrink-0 pl-4 border-l border-dugout-200 dark:border-dugout-700">
           {!player.isDrafted && !player.isNotInterested && (
-            <AddToRankingsButton
-              playerId={player.id}
-              tierNames={tierNames}
-              onAdd={onAddToRankings}
-              isInRankings={!!player.ranking}
-            />
+            player.ranking ? (
+              <button
+                onClick={() => onRemoveFromRankings(player.id)}
+                className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-greenFlag/10 text-greenFlag hover:bg-redFlag/10 hover:text-redFlag transition-colors"
+                title="Remove from rankings"
+              >
+                <CheckCircle className="w-3 h-3" />
+                <span className="hidden sm:inline">Ranked</span>
+                <X className="w-3 h-3 ml-1" />
+              </button>
+            ) : (
+              <div className="relative">
+                <button
+                  onClick={() => setShowTierMenu(!showTierMenu)}
+                  disabled={isAdding}
+                  className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-diamond-100 dark:bg-diamond-900/30 text-diamond-700 dark:text-diamond-400 hover:bg-diamond-200 dark:hover:bg-diamond-900/50 transition-colors"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span className="hidden sm:inline">Add</span>
+                </button>
+                {showTierMenu && (
+                  <div className="absolute right-0 top-full mt-1 z-50 w-40 rounded-lg shadow-lg border border-dugout-200 dark:border-dugout-700 bg-white dark:bg-dugout-900 py-1">
+                    <div className="px-2 py-1 text-xs text-dugout-500 dark:text-dugout-400 font-medium">Add to tier:</div>
+                    {[1, 2, 3, 4, 5].map((tier) => (
+                      <button
+                        key={tier}
+                        onClick={() => handleAddToTier(tier)}
+                        className="w-full px-3 py-2 text-left text-sm hover:bg-dugout-100 dark:hover:bg-dugout-800 text-dugout-700 dark:text-dugout-300"
+                      >
+                        {tier} - {tierNames[tier as keyof TierNames] || DEFAULT_TIER_NAMES[tier as keyof TierNames]}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
           )}
           <NotInterestedButton
             playerId={player.id}
@@ -553,16 +619,180 @@ function PlayerCard({
             onToggle={onToggleNotInterested}
           />
         </div>
-        
-        <div className="text-dugout-400">
-          {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-        </div>
       </div>
 
+      {/* Expanded view with full ratings */}
       {isExpanded && (
-        <div className="border-t border-dugout-200 dark:border-dugout-700 p-4 bg-dugout-50 dark:bg-dugout-800/30">
-          <div className="text-sm text-dugout-500">
-            Expanded player details here (ratings, background, etc.)
+        <div className="border-t border-dugout-200 dark:border-dugout-700 p-4 bg-dugout-50 dark:bg-dugout-800/30 space-y-6">
+          {/* Mobile: OVR/POT/Score/Demand */}
+          <div className="md:hidden grid grid-cols-4 gap-4 pb-4 border-b border-dugout-200 dark:border-dugout-700">
+            <div className="text-center">
+              <div className="text-xs text-dugout-400">OVR</div>
+              <div className="font-bold text-dugout-900 dark:text-white">{player.overall}</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xs text-dugout-400">POT</div>
+              <div className="font-bold text-dugout-900 dark:text-white">{player.potential}</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xs text-dugout-400">Score</div>
+              <div className="font-bold text-dugout-900 dark:text-white">{player.compositeScore?.toFixed(1)}</div>
+            </div>
+            <div className="text-center">
+              <div className="text-xs text-dugout-400">Demand</div>
+              <div className="font-medium text-dugout-700 dark:text-dugout-300">{player.demandAmount || 'N/A'}</div>
+            </div>
+          </div>
+
+          {/* Primary Ratings */}
+          <div>
+            <h4 className="text-sm font-medium text-dugout-700 dark:text-dugout-300 mb-3">
+              {isPitcher ? 'Pitching Ratings (Current/Potential)' : 'Batting Ratings (Current/Potential)'}
+            </h4>
+            <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-6 gap-4">
+              {isPitcher && player.pitchingRatings ? (
+                <>
+                  <RatingBox label="STU" current={player.pitchingRatings.stuff} potential={player.pitchingRatings.stuffPot} />
+                  <RatingBox label="MOV" current={player.pitchingRatings.movement} potential={player.pitchingRatings.movementPot} />
+                  <RatingBox label="CTL" current={player.pitchingRatings.control} potential={player.pitchingRatings.controlPot} />
+                  <RatingBox label="PBAB" current={player.pitchingRatings.pBabip} potential={player.pitchingRatings.pBabipPot} />
+                  <RatingBox label="HRR" current={player.pitchingRatings.hrRate} potential={player.pitchingRatings.hrRatePot} />
+                  <RatingBox label="STM" current={player.pitchingRatings.stamina} potential={player.pitchingRatings.stamina} />
+                </>
+              ) : player.battingRatings ? (
+                <>
+                  <RatingBox label="CON" current={player.battingRatings.contact} potential={player.battingRatings.contactPot} />
+                  <RatingBox label="GAP" current={player.battingRatings.gap} potential={player.battingRatings.gapPot} />
+                  <RatingBox label="POW" current={player.battingRatings.power} potential={player.battingRatings.powerPot} />
+                  <RatingBox label="EYE" current={player.battingRatings.eye} potential={player.battingRatings.eyePot} />
+                  <RatingBox label="K's" current={player.battingRatings.avoidK} potential={player.battingRatings.avoidKPot} />
+                  <RatingBox label="BABIP" current={player.battingRatings.babip} potential={player.battingRatings.babipPot} />
+                </>
+              ) : null}
+            </div>
+          </div>
+
+          {/* Pitch Arsenal for pitchers */}
+          {isPitcher && player.pitchArsenal && (
+            <div>
+              <h4 className="text-sm font-medium text-dugout-700 dark:text-dugout-300 mb-3">Pitch Arsenal</h4>
+              <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-3">
+                {player.pitchArsenal.fastball && <RatingBox label="FB" current={player.pitchArsenal.fastball} potential={player.pitchArsenal.fastballPot} />}
+                {player.pitchArsenal.changeup && <RatingBox label="CH" current={player.pitchArsenal.changeup} potential={player.pitchArsenal.changeupPot} />}
+                {player.pitchArsenal.curveball && <RatingBox label="CB" current={player.pitchArsenal.curveball} potential={player.pitchArsenal.curveballPot} />}
+                {player.pitchArsenal.slider && <RatingBox label="SL" current={player.pitchArsenal.slider} potential={player.pitchArsenal.sliderPot} />}
+                {player.pitchArsenal.sinker && <RatingBox label="SI" current={player.pitchArsenal.sinker} potential={player.pitchArsenal.sinkerPot} />}
+                {player.pitchArsenal.cutter && <RatingBox label="CT" current={player.pitchArsenal.cutter} potential={player.pitchArsenal.cutterPot} />}
+                {player.pitchArsenal.splitter && <RatingBox label="SP" current={player.pitchArsenal.splitter} potential={player.pitchArsenal.splitterPot} />}
+                {player.pitchArsenal.circleChange && <RatingBox label="CC" current={player.pitchArsenal.circleChange} potential={player.pitchArsenal.circleChangePot} />}
+              </div>
+              {player.pitchingRatings && (
+                <div className="mt-3 flex flex-wrap gap-4 text-sm text-dugout-600 dark:text-dugout-400">
+                  {player.pitchingRatings.velocity && <span>Velo: {player.pitchingRatings.velocity}</span>}
+                  {player.pitchingRatings.groundFlyRatio && <span>G/F: {player.pitchingRatings.groundFlyRatio}</span>}
+                  {player.pitchingRatings.armSlot && <span>Slot: {player.pitchingRatings.armSlot}</span>}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Speed & Defense for batters */}
+          {!isPitcher && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {player.speedRatings && (
+                <div>
+                  <h4 className="text-sm font-medium text-dugout-700 dark:text-dugout-300 mb-3">Speed & Baserunning</h4>
+                  <div className="grid grid-cols-4 gap-3">
+                    <RatingBox label="SPD" current={player.speedRatings.speed} potential={player.speedRatings.speed} />
+                    <RatingBox label="STL" current={player.speedRatings.stealingAbility} potential={player.speedRatings.stealingAbility} />
+                    <RatingBox label="RUN" current={player.speedRatings.baserunning} potential={player.speedRatings.baserunning} />
+                    <RatingBox label="AGG" current={player.speedRatings.stealingAggression} potential={player.speedRatings.stealingAggression} />
+                  </div>
+                </div>
+              )}
+              {player.defenseRatings && (
+                <div>
+                  <h4 className="text-sm font-medium text-dugout-700 dark:text-dugout-300 mb-3">Defense</h4>
+                  <div className="grid grid-cols-4 gap-3">
+                    {player.position === 'C' && (
+                      <>
+                        <RatingBox label="C ABI" current={player.defenseRatings.catcherAbility} potential={player.defenseRatings.catcherPot} />
+                        <RatingBox label="FRM" current={player.defenseRatings.catcherFraming} potential={player.defenseRatings.catcherFraming} />
+                        <RatingBox label="ARM" current={player.defenseRatings.catcherArm} potential={player.defenseRatings.catcherArm} />
+                      </>
+                    )}
+                    {['LF', 'CF', 'RF'].includes(player.position) && (
+                      <>
+                        <RatingBox label="RNG" current={player.defenseRatings.outfieldRange} potential={player.defenseRatings.outfieldRange} />
+                        <RatingBox label="ERR" current={player.defenseRatings.outfieldError} potential={player.defenseRatings.outfieldError} />
+                        <RatingBox label="ARM" current={player.defenseRatings.outfieldArm} potential={player.defenseRatings.outfieldArm} />
+                      </>
+                    )}
+                    {['1B', '2B', '3B', 'SS'].includes(player.position) && (
+                      <>
+                        <RatingBox label="RNG" current={player.defenseRatings.infieldRange} potential={player.defenseRatings.infieldRange} />
+                        <RatingBox label="ERR" current={player.defenseRatings.infieldError} potential={player.defenseRatings.infieldError} />
+                        <RatingBox label="ARM" current={player.defenseRatings.infieldArm} potential={player.defenseRatings.infieldArm} />
+                        <RatingBox label="TDP" current={player.defenseRatings.turnDoublePlay} potential={player.defenseRatings.turnDoublePlay} />
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Background & Personality */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-4 border-t border-dugout-200 dark:border-dugout-700">
+            <div>
+              <h4 className="text-sm font-medium text-dugout-700 dark:text-dugout-300 mb-2">Background</h4>
+              <div className="text-sm text-dugout-600 dark:text-dugout-400 space-y-1">
+                {player.school && <p>School: {player.school}</p>}
+                {player.committedSchool && <p>Committed: {player.committedSchool}</p>}
+                {player.competitionLevel && <p>Competition: {player.competitionLevel}</p>}
+                <p>Signability: {player.signability || 'N/A'} • Risk: {player.risk || 'N/A'}</p>
+                <p>Scout Accuracy: {player.scoutAccuracy || 'N/A'}</p>
+              </div>
+            </div>
+            <div>
+              <h4 className="text-sm font-medium text-dugout-700 dark:text-dugout-300 mb-2">Personality</h4>
+              <div className="flex flex-wrap gap-2 text-xs">
+                {player.leadership && <span className="px-2 py-1 rounded bg-dugout-100 dark:bg-dugout-800">LEA: {player.leadership}</span>}
+                {player.workEthic && <span className="px-2 py-1 rounded bg-dugout-100 dark:bg-dugout-800">WE: {player.workEthic}</span>}
+                {player.intelligence && <span className="px-2 py-1 rounded bg-dugout-100 dark:bg-dugout-800">INT: {player.intelligence}</span>}
+                {player.adaptability && <span className="px-2 py-1 rounded bg-dugout-100 dark:bg-dugout-800">AD: {player.adaptability}</span>}
+                {player.loyalty && <span className="px-2 py-1 rounded bg-dugout-100 dark:bg-dugout-800">LOY: {player.loyalty}</span>}
+                {player.injuryProne && <span className={cn("px-2 py-1 rounded", player.injuryProne === 'Fragile' ? 'bg-redFlag/10 text-redFlag' : 'bg-dugout-100 dark:bg-dugout-800')}>Prone: {player.injuryProne}</span>}
+              </div>
+            </div>
+          </div>
+
+          {/* Archetypes and Flags */}
+          <div className="flex flex-wrap gap-4 pt-4 border-t border-dugout-200 dark:border-dugout-700">
+            {player.archetypes.length > 0 && (
+              <div>
+                <span className="text-xs text-dugout-500 mr-2">Archetypes:</span>
+                {player.archetypes.map(arch => (
+                  <span key={arch} className="badge bg-diamond-100 dark:bg-diamond-900/30 text-diamond-700 dark:text-diamond-400 text-xs mr-1">{arch}</span>
+                ))}
+              </div>
+            )}
+            {player.redFlags.length > 0 && (
+              <div>
+                <span className="text-xs text-dugout-500 mr-2">Red Flags:</span>
+                {player.redFlags.map(flag => (
+                  <span key={flag} className="badge bg-redFlag/10 text-redFlag text-xs mr-1">{flag}</span>
+                ))}
+              </div>
+            )}
+            {player.greenFlags.length > 0 && (
+              <div>
+                <span className="text-xs text-dugout-500 mr-2">Green Flags:</span>
+                {player.greenFlags.map(flag => (
+                  <span key={flag} className="badge bg-greenFlag/10 text-greenFlag text-xs mr-1">{flag}</span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

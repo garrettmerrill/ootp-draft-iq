@@ -33,6 +33,7 @@ interface TierSectionProps {
   tierNames: TierNames;
   isDragOver?: boolean;
   activeId?: string | null;
+  activeTier?: number | null;
 }
 
 export function TierSection({
@@ -47,11 +48,15 @@ export function TierSection({
   tierNames,
   isDragOver = false,
   activeId,
+  activeTier,
 }: TierSectionProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `tier-${tier}`,
     data: { tier, type: 'tier' },
   });
+
+  // Only show highlight if dragging FROM a different tier
+  const showDropHighlight = (isOver || isDragOver) && activeId && activeTier !== null && activeTier !== tier;
 
   const tierColors: Record<number, string> = {
     1: 'border-l-blue-500',
@@ -73,10 +78,10 @@ export function TierSection({
     <div
       ref={setNodeRef}
       className={cn(
-        'rounded-lg border border-dugout-200 dark:border-dugout-700 overflow-hidden transition-all',
+        'rounded-lg border border-dugout-200 dark:border-dugout-700 overflow-hidden transition-all duration-200',
         'border-l-4',
         tierColors[tier],
-        (isOver || isDragOver) && 'ring-2 ring-diamond-500 ring-offset-2 dark:ring-offset-dugout-900'
+        showDropHighlight && 'ring-2 ring-diamond-500 ring-offset-2 dark:ring-offset-dugout-900 scale-[1.01]'
       )}
     >
       {/* Header */}
@@ -103,11 +108,11 @@ export function TierSection({
         </div>
       </button>
 
-      {/* Drop zone indicator when dragging over */}
-      {(isOver || isDragOver) && activeId && (
-        <div className="px-4 py-2 bg-diamond-100 dark:bg-diamond-900/30 border-y border-diamond-200 dark:border-diamond-800">
-          <p className="text-sm text-diamond-700 dark:text-diamond-400 text-center">
-            Drop to move to {tierName}
+      {/* Drop zone indicator when dragging between tiers */}
+      {showDropHighlight && (
+        <div className="px-4 py-2 bg-diamond-100 dark:bg-diamond-900/30 border-y border-diamond-200 dark:border-diamond-800 animate-pulse">
+          <p className="text-sm text-diamond-700 dark:text-diamond-400 text-center font-medium">
+            Drop here to move to {tierName}
           </p>
         </div>
       )}
@@ -168,14 +173,19 @@ function SortableRankingCard({
     transform,
     transition,
     isDragging,
+    isSorting,
   } = useSortable({ 
     id: ranking.id,
     data: { tier: currentTier, ranking },
+    transition: {
+      duration: 200,
+      easing: 'cubic-bezier(0.25, 1, 0.5, 1)',
+    },
   });
 
   const style = {
     transform: CSS.Transform.toString(transform),
-    transition,
+    transition: isSorting ? transition : undefined,
   };
 
   const player = ranking.player;
@@ -186,8 +196,9 @@ function SortableRankingCard({
       ref={setNodeRef}
       style={style}
       className={cn(
-        'flex items-center gap-3 px-4 py-3 bg-white dark:bg-dugout-900 transition-all',
-        isDragging && 'opacity-50 shadow-lg z-50',
+        'flex items-center gap-3 px-4 py-3 bg-white dark:bg-dugout-900 transition-all duration-200',
+        isDragging && 'opacity-90 shadow-lg z-50 scale-[1.02] bg-dugout-50 dark:bg-dugout-800',
+        !isDragging && 'hover:bg-dugout-50 dark:hover:bg-dugout-800/50',
         player.isDrafted && 'opacity-50'
       )}
     >
@@ -195,7 +206,10 @@ function SortableRankingCard({
       <button
         {...attributes}
         {...listeners}
-        className="cursor-grab active:cursor-grabbing p-1 rounded hover:bg-dugout-100 dark:hover:bg-dugout-800 text-dugout-400"
+        className={cn(
+          'cursor-grab active:cursor-grabbing p-1 rounded text-dugout-400 transition-colors',
+          'hover:bg-dugout-100 dark:hover:bg-dugout-800 hover:text-dugout-600 dark:hover:text-dugout-300'
+        )}
       >
         <GripVertical className="w-4 h-4" />
       </button>
@@ -237,7 +251,7 @@ function SortableRankingCard({
       </div>
 
       {/* Ratings */}
-      <div className="flex items-center gap-4 text-sm">
+      <div className="hidden sm:flex items-center gap-4 text-sm">
         <div className="text-center">
           <div className="text-xs text-dugout-400">OVR/POT</div>
           <div className="font-medium text-dugout-700 dark:text-dugout-300">
@@ -256,32 +270,38 @@ function SortableRankingCard({
       <div className="relative">
         <button
           onClick={() => setShowTierDropdown(!showTierDropdown)}
-          className="px-2 py-1 text-xs rounded border border-dugout-200 dark:border-dugout-700 hover:bg-dugout-50 dark:hover:bg-dugout-800 text-dugout-600 dark:text-dugout-400"
+          className="px-2 py-1 text-xs rounded border border-dugout-200 dark:border-dugout-700 hover:bg-dugout-50 dark:hover:bg-dugout-800 text-dugout-600 dark:text-dugout-400 transition-colors"
         >
           Tier {currentTier}
         </button>
         {showTierDropdown && (
-          <div className="absolute right-0 top-full mt-1 z-50 w-36 rounded-lg shadow-lg border border-dugout-200 dark:border-dugout-700 bg-white dark:bg-dugout-900 py-1">
-            {[1, 2, 3, 4, 5].map((t) => (
-              <button
-                key={t}
-                onClick={() => {
-                  if (t !== currentTier) {
-                    onChangeTier(ranking.id, t);
-                  }
-                  setShowTierDropdown(false);
-                }}
-                className={cn(
-                  'w-full px-3 py-1.5 text-left text-sm',
-                  t === currentTier 
-                    ? 'bg-diamond-100 dark:bg-diamond-900/30 text-diamond-700 dark:text-diamond-400'
-                    : 'hover:bg-dugout-100 dark:hover:bg-dugout-800 text-dugout-700 dark:text-dugout-300'
-                )}
-              >
-                {t} - {tierNames[t as keyof TierNames] || DEFAULT_TIER_NAMES[t as keyof TierNames]}
-              </button>
-            ))}
-          </div>
+          <>
+            <div 
+              className="fixed inset-0 z-40" 
+              onClick={() => setShowTierDropdown(false)}
+            />
+            <div className="absolute right-0 top-full mt-1 z-50 w-36 rounded-lg shadow-lg border border-dugout-200 dark:border-dugout-700 bg-white dark:bg-dugout-900 py-1">
+              {[1, 2, 3, 4, 5].map((t) => (
+                <button
+                  key={t}
+                  onClick={() => {
+                    if (t !== currentTier) {
+                      onChangeTier(ranking.id, t);
+                    }
+                    setShowTierDropdown(false);
+                  }}
+                  className={cn(
+                    'w-full px-3 py-1.5 text-left text-sm transition-colors',
+                    t === currentTier 
+                      ? 'bg-diamond-100 dark:bg-diamond-900/30 text-diamond-700 dark:text-diamond-400'
+                      : 'hover:bg-dugout-100 dark:hover:bg-dugout-800 text-dugout-700 dark:text-dugout-300'
+                  )}
+                >
+                  {t} - {tierNames[t as keyof TierNames] || DEFAULT_TIER_NAMES[t as keyof TierNames]}
+                </button>
+              ))}
+            </div>
+          </>
         )}
       </div>
 
