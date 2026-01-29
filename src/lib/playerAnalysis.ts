@@ -295,7 +295,6 @@ export function detectGreenFlags(player: Player): string[] {
   if (player.risk === 'Low') flags.push('Low Risk');
   if (player.injuryProne === 'Durable') flags.push('Durable');
   if (player.workEthic === 'H') flags.push('High Work Ethic');
-  if (player.scoutAccuracy === 'Very High' || player.scoutAccuracy === 'High') flags.push('Easy to Scout');
   if (player.intelligence === 'H') flags.push('High Intelligence');
   if (player.leadership === 'H') flags.push('Leader');
   if (player.adaptability === 'H') flags.push('High Adaptability');
