@@ -553,7 +553,7 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
 
   breakdown.total = breakdown.potentialContribution + breakdown.overallContribution + breakdown.riskPenalty +
     breakdown.signabilityBonus + breakdown.positionBonus + ratingScore;
-  breakdown.total = Math.max(0, Math.min(100, breakdown.total));
+  breakdown.total = Math.max(0, breakdown.total); // Allow scores to exceed 100
 
   return { score: breakdown.total, breakdown };
 }

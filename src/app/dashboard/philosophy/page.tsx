@@ -160,7 +160,12 @@ export default function PhilosophyPage() {
   return (
     <div className="max-w-6xl mx-auto p-8 space-y-8">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Draft Philosophy</h1>
+        <div>
+          <h1 className="text-3xl font-bold">Draft Philosophy</h1>
+          <p className="text-dugout-500 dark:text-dugout-400 mt-1">
+            Configure how players are evaluated and ranked
+          </p>
+        </div>
         <button
           onClick={() => {
             setEditing({ ...DEFAULT_PHILOSOPHY, name: 'New Philosophy' });
@@ -170,6 +175,44 @@ export default function PhilosophyPage() {
         >
           Create New
         </button>
+      </div>
+
+      {/* Score Calculation Explanation */}
+      <div className="bg-gradient-to-br from-blue-50 to-white dark:from-blue-950 dark:to-gray-800 rounded-lg shadow-lg p-6 border-2 border-blue-200 dark:border-blue-800">
+        <h2 className="text-xl font-bold text-dugout-900 dark:text-white mb-3 flex items-center gap-2">
+          <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          How Player Scores Are Calculated
+        </h2>
+        <div className="space-y-4 text-sm text-dugout-700 dark:text-dugout-300">
+          <p className="leading-relaxed">
+            Each player receives a <span className="font-semibold text-blue-600 dark:text-blue-400">Composite Score</span> based on your philosophy settings below. This score determines their ranking on your draft board.
+          </p>
+          <div className="bg-white dark:bg-gray-900 rounded-lg p-4 border border-gray-300 dark:border-gray-700">
+            <div className="font-mono text-xs space-y-2">
+              <div><span className="font-semibold">Composite Score =</span></div>
+              <div className="ml-4">(<span className="text-blue-600 dark:text-blue-400">Potential Weight</span> × Tool-Weighted Potential Score) +</div>
+              <div className="ml-4">(<span className="text-blue-600 dark:text-blue-400">Overall Weight</span> × Tool-Weighted Overall Score) +</div>
+              <div className="ml-4"><span className="text-green-600">Preference Bonuses</span> -</div>
+              <div className="ml-4"><span className="text-red-600">Risk Penalty</span></div>
+            </div>
+          </div>
+          <div className="grid md:grid-cols-2 gap-4 mt-4">
+            <div className="bg-white dark:bg-gray-900 rounded-lg p-4 border border-gray-300 dark:border-gray-700">
+              <div className="font-semibold text-dugout-900 dark:text-white mb-2">Tool-Weighted Scores</div>
+              <p className="text-xs leading-relaxed">
+                Individual tool ratings (Contact, Power, Stuff, Movement, etc.) are weighted by your slider settings to create overall Potential and Overall scores for each player.
+              </p>
+            </div>
+            <div className="bg-white dark:bg-gray-900 rounded-lg p-4 border border-gray-300 dark:border-gray-700">
+              <div className="font-semibold text-dugout-900 dark:text-white mb-2">Preference Bonuses</div>
+              <p className="text-xs leading-relaxed">
+                Additional points awarded for College/HS preference, batter type preference, pitcher type preference, and priority positions. Scores can exceed 100.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Philosophy Selector */}
@@ -511,7 +554,16 @@ export default function PhilosophyPage() {
               className="w-full" />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2">Defense: {editing.batterWeights.defense}%</label>
+            <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+              Defense: {editing.batterWeights.defense}%
+              <span className="text-xs text-gray-500 dark:text-gray-400 cursor-help" title="Defense uses the best defensive component rating (Range, Arm, or Ability) based on position. Infield/Outfield ratings only count if player has position ratings in those areas.">
+                ⓘ
+              </span>
+            </label>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+              Defense is calculated using individual defensive components (Range, Error, Arm, Ability, Framing) rather than position ratings. 
+              Infield ratings apply only if the player has ratings at IF positions (2B, SS, 3B). Outfield ratings apply only if rated at OF positions (LF, CF, RF).
+            </p>
             <input type="range" min="0" max="100" value={editing.batterWeights.defense}
               onChange={(e) => setEditing({...editing, batterWeights: {...editing.batterWeights, defense: Number(e.target.value)}})}
               className="w-full" />
@@ -583,7 +635,13 @@ export default function PhilosophyPage() {
               className="w-full" />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2">Arsenal: {editing.spWeights.arsenal}%</label>
+            <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+              Arsenal: {editing.spWeights.arsenal}%
+              <span className="text-xs text-gray-500 dark:text-gray-400 cursor-help" title="Arsenal score is based on the number of plus pitches (55+). Having 3+ pitches rated 55+ results in a perfect arsenal score.">
+                ⓘ
+              </span>
+            </label>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Arsenal is calculated by counting pitches rated 55+ (out of 80). Three or more plus pitches = maximum score.</p>
             <input type="range" min="0" max="100" value={editing.spWeights.arsenal}
               onChange={(e) => setEditing({...editing, spWeights: {...editing.spWeights, arsenal: Number(e.target.value)}})}
               className="w-full" />
@@ -649,7 +707,13 @@ export default function PhilosophyPage() {
               className="w-full" />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2">Arsenal: {editing.rpWeights.arsenal}%</label>
+            <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+              Arsenal: {editing.rpWeights.arsenal}%
+              <span className="text-xs text-gray-500 dark:text-gray-400 cursor-help" title="Arsenal score is based on the number of plus pitches (55+). Having 3+ pitches rated 55+ results in a perfect arsenal score.">
+                ⓘ
+              </span>
+            </label>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Arsenal is calculated by counting pitches rated 55+ (out of 80). Three or more plus pitches = maximum score.</p>
             <input type="range" min="0" max="100" value={editing.rpWeights.arsenal}
               onChange={(e) => setEditing({...editing, rpWeights: {...editing.rpWeights, arsenal: Number(e.target.value)}})}
               className="w-full" />
@@ -659,7 +723,11 @@ export default function PhilosophyPage() {
 
       {/* Tier Thresholds */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4">Tier Thresholds</h2>
+        <h2 className="text-xl font-semibold mb-2">Tier Thresholds</h2>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          Players are assigned tiers based on their composite score. These thresholds determine which tier each player falls into on your draft board. 
+          Any player scoring below the "Average" threshold is classified as "Filler".
+        </p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium mb-2">Elite (≥)</label>
