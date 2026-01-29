@@ -557,171 +557,174 @@ function PlayerCard({
   }
 
   return (
-    <div className={cn('card overflow-hidden transition-all relative', player.isDrafted && 'opacity-50', player.isNotInterested && 'opacity-40')}>
+    <div className={cn('card overflow-visible transition-all', player.isDrafted && 'opacity-50', player.isNotInterested && 'opacity-40')}>
       {/* Collapsed view */}
-      <div
-        onClick={onToggle}
-        className="flex items-center gap-4 p-4 cursor-pointer hover:bg-dugout-50 dark:hover:bg-dugout-800/50"
-      >
-        <div className={cn('h-12 w-1 rounded-full', getTierIndicatorClass(player.tier))} />
-        
-        <div className="w-8 text-center">
-          <span className="text-lg font-bold text-dugout-400">#{rank}</span>
-        </div>
+      <div className="flex items-center gap-4 p-4">
+        {/* Clickable area for expanding */}
+        <div
+          onClick={onToggle}
+          className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer hover:bg-dugout-50 dark:hover:bg-dugout-800/50 -m-4 p-4 rounded-l-lg"
+        >
+          <div className={cn('h-12 w-1 rounded-full flex-shrink-0', getTierIndicatorClass(player.tier))} />
+          
+          <div className="w-8 text-center flex-shrink-0">
+            <span className="text-lg font-bold text-dugout-400">#{rank}</span>
+          </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={cn("font-semibold", player.isNotInterested ? "text-dugout-500 line-through" : "text-dugout-900 dark:text-white")}>
-              {player.name}
-            </span>
-            {player.nickname && (
-              <span className="text-sm text-dugout-500">&quot;{player.nickname}&quot;</span>
-            )}
-            {player.isSleeper && (
-              <span className="badge-sleeper">
-                <Sparkles className="w-3 h-3 mr-1" />
-                Sleeper
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={cn("font-semibold", player.isNotInterested ? "text-dugout-500 line-through" : "text-dugout-900 dark:text-white")}>
+                {player.name}
               </span>
-            )}
-            {player.isTwoWay && (
-              <span className="badge bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
-                Two-Way
+              {player.nickname && (
+                <span className="text-sm text-dugout-500">&quot;{player.nickname}&quot;</span>
+              )}
+              {player.isSleeper && (
+                <span className="badge-sleeper">
+                  <Sparkles className="w-3 h-3 mr-1" />
+                  Sleeper
+                </span>
+              )}
+              {player.isTwoWay && (
+                <span className="badge bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                  Two-Way
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 mt-1 text-sm text-dugout-500 dark:text-dugout-400">
+              <span className="font-medium">
+                {isPitcher 
+                  ? `${player.throws === 'L' ? 'LHP' : 'RHP'} (${player.position})`
+                  : `${player.position}`
+                }
               </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2 mt-1 text-sm text-dugout-500 dark:text-dugout-400">
-            <span className="font-medium">
-              {isPitcher 
-                ? `${player.throws === 'L' ? 'LHP' : 'RHP'} (${player.position})`
-                : `${player.position}`
-              }
-            </span>
-            <span>•</span>
-            <span>Age {player.age}</span>
-            <span>•</span>
-            <span>{player.highSchoolClass}</span>
-            {!isPitcher && (
-              <>
-                <span>•</span>
-                <span>Bats: {player.bats}</span>
-              </>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-6 text-sm">
-          <div className="text-center">
-            <div className="text-dugout-400 text-xs">OVR/POT</div>
-            <div className="font-bold text-dugout-900 dark:text-white">
-              {player.overall}/{player.potential}
-            </div>
-          </div>
-          <div className="text-center">
-            <div className="text-dugout-400 text-xs">Score</div>
-            <div className="font-bold text-dugout-900 dark:text-white">
-              {player.compositeScore?.toFixed(1)}
-            </div>
-          </div>
-          <div className="text-center min-w-[80px]">
-            <div className="text-dugout-400 text-xs">Demand</div>
-            <div className="font-medium text-dugout-700 dark:text-dugout-300">
-              {player.demandAmount || 'N/A'}
-            </div>
-          </div>
-        </div>
-
-        <div className="hidden lg:flex items-center gap-1 flex-wrap max-w-[200px]">
-          {player.archetypes.slice(0, 2).map(arch => (
-            <span key={arch} className="badge bg-dugout-100 dark:bg-dugout-800 text-dugout-600 dark:text-dugout-400 text-xs">
-              {arch}
-            </span>
-          ))}
-          {player.archetypes.length > 2 && (
-            <span className="text-xs text-dugout-400">+{player.archetypes.length - 2}</span>
-          )}
-        </div>
-
-        <div className="flex items-center gap-1">
-          {player.redFlags.length > 0 && (
-            <span className="text-redFlag" title={player.redFlags.join(', ')}>
-              <AlertTriangle className="w-4 h-4" />
-            </span>
-          )}
-          {player.greenFlags.length > 0 && (
-            <span className="text-greenFlag" title={player.greenFlags.join(', ')}>
-              <CheckCircle className="w-4 h-4" />
-            </span>
-          )}
-        </div>
-
-        {player.isDrafted && (
-          <div className="text-sm text-dugout-500">
-            Drafted: R{player.draftRound}, P{player.draftPick}
-          </div>
-        )}
-
-        <div className="text-dugout-400">
-          {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-        </div>
-      </div>
-
-      {/* Action buttons - positioned absolutely in top right */}
-      <div className="absolute top-3 right-14 flex items-center gap-2" onClick={e => e.stopPropagation()}>
-        {!player.isDrafted && !player.isNotInterested && (
-          player.ranking ? (
-            <button
-              onClick={() => onRemoveFromRankings(player.id)}
-              className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-greenFlag/10 text-greenFlag hover:bg-redFlag/10 hover:text-redFlag transition-colors"
-              title="Remove from rankings"
-            >
-              <CheckCircle className="w-3 h-3" />
-              <span className="hidden sm:inline">Ranked</span>
-            </button>
-          ) : (
-            <div className="relative">
-              <button
-                onClick={() => setShowTierMenu(!showTierMenu)}
-                disabled={isAdding}
-                className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-diamond-100 dark:bg-diamond-900/30 text-diamond-700 dark:text-diamond-400 hover:bg-diamond-200 dark:hover:bg-diamond-900/50 transition-colors"
-              >
-                <Plus className="w-3 h-3" />
-                <span className="hidden sm:inline">Add</span>
-              </button>
-              {showTierMenu && (
+              <span>•</span>
+              <span>Age {player.age}</span>
+              <span>•</span>
+              <span>{player.highSchoolClass}</span>
+              {!isPitcher && (
                 <>
-                  <div 
-                    className="fixed inset-0 z-[100]" 
-                    onClick={() => setShowTierMenu(false)}
-                  />
-                  <div className="absolute right-0 top-full mt-1 z-[101] w-40 rounded-lg shadow-lg border border-dugout-200 dark:border-dugout-700 bg-white dark:bg-dugout-900 py-1">
-                    <div className="px-2 py-1 text-xs text-dugout-500 dark:text-dugout-400 font-medium">Add to tier:</div>
-                    {[1, 2, 3, 4, 5].map((tier) => (
-                      <button
-                        key={tier}
-                        onClick={() => handleAddToTier(tier)}
-                        className="w-full px-3 py-2 text-left text-sm hover:bg-dugout-100 dark:hover:bg-dugout-800 text-dugout-700 dark:text-dugout-300"
-                      >
-                        {tier} - {tierNames[tier as keyof TierNames] || DEFAULT_TIER_NAMES[tier as keyof TierNames]}
-                      </button>
-                    ))}
-                  </div>
+                  <span>•</span>
+                  <span>Bats: {player.bats}</span>
                 </>
               )}
             </div>
-          )
-        )}
-        <button
-          onClick={() => onToggleNotInterested(player.id, !player.isNotInterested)}
-          className={cn(
-            "p-1 rounded transition-colors",
-            player.isNotInterested 
-              ? "bg-redFlag/10 text-redFlag hover:bg-dugout-100 dark:hover:bg-dugout-800 hover:text-dugout-500" 
-              : "text-dugout-400 hover:bg-redFlag/10 hover:text-redFlag"
+          </div>
+
+          <div className="flex items-center gap-6 text-sm flex-shrink-0">
+            <div className="text-center">
+              <div className="text-dugout-400 text-xs">OVR/POT</div>
+              <div className="font-bold text-dugout-900 dark:text-white">
+                {player.overall}/{player.potential}
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-dugout-400 text-xs">Score</div>
+              <div className="font-bold text-dugout-900 dark:text-white">
+                {player.compositeScore?.toFixed(1)}
+              </div>
+            </div>
+            <div className="text-center min-w-[80px]">
+              <div className="text-dugout-400 text-xs">Demand</div>
+              <div className="font-medium text-dugout-700 dark:text-dugout-300">
+                {player.demandAmount || 'N/A'}
+              </div>
+            </div>
+          </div>
+
+          <div className="hidden lg:flex items-center gap-1 flex-wrap max-w-[200px] flex-shrink-0">
+            {player.archetypes.slice(0, 2).map(arch => (
+              <span key={arch} className="badge bg-dugout-100 dark:bg-dugout-800 text-dugout-600 dark:text-dugout-400 text-xs">
+                {arch}
+              </span>
+            ))}
+            {player.archetypes.length > 2 && (
+              <span className="text-xs text-dugout-400">+{player.archetypes.length - 2}</span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {player.redFlags.length > 0 && (
+              <span className="text-redFlag" title={player.redFlags.join(', ')}>
+                <AlertTriangle className="w-4 h-4" />
+              </span>
+            )}
+            {player.greenFlags.length > 0 && (
+              <span className="text-greenFlag" title={player.greenFlags.join(', ')}>
+                <CheckCircle className="w-4 h-4" />
+              </span>
+            )}
+          </div>
+
+          {player.isDrafted && (
+            <div className="text-sm text-dugout-500 flex-shrink-0">
+              Drafted: R{player.draftRound}, P{player.draftPick}
+            </div>
           )}
-          title={player.isNotInterested ? "Remove from Not Interested" : "Mark as Not Interested"}
-        >
-          <Ban className="w-4 h-4" />
-        </button>
+
+          <div className="text-dugout-400 flex-shrink-0">
+            {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+          </div>
+        </div>
+
+        {/* Action buttons column - separate from clickable area */}
+        <div className="flex flex-col items-center gap-1 pl-3 border-l border-dugout-200 dark:border-dugout-700 flex-shrink-0 relative z-50">
+          {!player.isDrafted && !player.isNotInterested && (
+            player.ranking ? (
+              <button
+                onClick={() => onRemoveFromRankings(player.id)}
+                className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-greenFlag/10 text-greenFlag hover:bg-redFlag/10 hover:text-redFlag transition-colors"
+                title="Remove from rankings"
+              >
+                <CheckCircle className="w-3 h-3" />
+                <span className="hidden sm:inline">Ranked</span>
+              </button>
+            ) : (
+              <div className="relative">
+                <button
+                  onClick={() => setShowTierMenu(!showTierMenu)}
+                  disabled={isAdding}
+                  className="flex items-center gap-1 px-2 py-1 rounded text-xs font-medium bg-diamond-100 dark:bg-diamond-900/30 text-diamond-700 dark:text-diamond-400 hover:bg-diamond-200 dark:hover:bg-diamond-900/50 transition-colors"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span className="hidden sm:inline">Add</span>
+                </button>
+                {showTierMenu && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-[9998]" 
+                      onClick={() => setShowTierMenu(false)}
+                    />
+                    <div className="absolute right-0 top-full mt-1 z-[9999] w-40 rounded-lg shadow-xl border border-dugout-200 dark:border-dugout-700 bg-white dark:bg-dugout-900 py-1">
+                      <div className="px-2 py-1 text-xs text-dugout-500 dark:text-dugout-400 font-medium">Add to tier:</div>
+                      {[1, 2, 3, 4, 5].map((tier) => (
+                        <button
+                          key={tier}
+                          onClick={() => handleAddToTier(tier)}
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-dugout-100 dark:hover:bg-dugout-800 text-dugout-700 dark:text-dugout-300"
+                        >
+                          {tier} - {tierNames[tier as keyof TierNames] || DEFAULT_TIER_NAMES[tier as keyof TierNames]}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )
+          )}
+          <button
+            onClick={() => onToggleNotInterested(player.id, !player.isNotInterested)}
+            className={cn(
+              "p-1 rounded transition-colors",
+              player.isNotInterested 
+                ? "bg-redFlag/10 text-redFlag hover:bg-dugout-100 dark:hover:bg-dugout-800 hover:text-dugout-500" 
+                : "text-dugout-400 hover:bg-redFlag/10 hover:text-redFlag"
+            )}
+            title={player.isNotInterested ? "Remove from Not Interested" : "Mark as Not Interested"}
+          >
+            <Ban className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Expanded view */}
