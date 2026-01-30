@@ -6,6 +6,47 @@ import { DraftPhilosophy, DEFAULT_PHILOSOPHY, POSITIONS } from '@/types';
 const BATTER_TYPES = ['Flyball', 'Line Drive', 'Normal', 'Groundball'];
 const PITCHER_TYPES = ['EX GB', 'GB', 'NEU', 'FB', 'EX FB'];
 
+// Migrate old philosophy data to ensure all new fields exist
+function migratePhilosophy(old: any): DraftPhilosophy {
+  return {
+    ...DEFAULT_PHILOSOPHY,
+    ...old,
+    // Ensure nested objects are properly merged with defaults
+    riskPenalties: {
+      ...DEFAULT_PHILOSOPHY.riskPenalties,
+      ...(old.riskPenalties || {}),
+    },
+    personalityBonuses: {
+      ...DEFAULT_PHILOSOPHY.personalityBonuses,
+      ...(old.personalityBonuses || {}),
+    },
+    personalityPenalties: {
+      ...DEFAULT_PHILOSOPHY.personalityPenalties,
+      ...(old.personalityPenalties || {}),
+    },
+    batterWeights: {
+      ...DEFAULT_PHILOSOPHY.batterWeights,
+      ...(old.batterWeights || {}),
+    },
+    spWeights: {
+      ...DEFAULT_PHILOSOPHY.spWeights,
+      ...(old.spWeights || {}),
+    },
+    rpWeights: {
+      ...DEFAULT_PHILOSOPHY.rpWeights,
+      ...(old.rpWeights || {}),
+    },
+    tierThresholds: {
+      ...DEFAULT_PHILOSOPHY.tierThresholds,
+      ...(old.tierThresholds || {}),
+    },
+    // Ensure arrays exist
+    preferredBatterTypes: old.preferredBatterTypes || [],
+    preferredPitcherTypes: old.preferredPitcherTypes || [],
+    priorityPositions: old.priorityPositions || [],
+  };
+}
+
 export default function PhilosophyPage() {
   const [philosophies, setPhilosophies] = useState<any[]>([]);
   const [presets, setPresets] = useState<any[]>([]);
@@ -29,7 +70,8 @@ export default function PhilosophyPage() {
       setActivePhilosophy(data.activePhilosophy);
       
       if (data.activePhilosophy) {
-        setEditing(data.activePhilosophy.settings);
+        // Migrate old philosophy data to ensure new fields exist
+        setEditing(migratePhilosophy(data.activePhilosophy.settings));
       }
     } catch (error) {
       console.error('Error fetching philosophies:', error);
@@ -232,7 +274,7 @@ export default function PhilosophyPage() {
               className={`p-4 border-2 rounded-lg cursor-pointer ${
                 editing.id === phil.id ? 'border-blue-500' : 'border-gray-300'
               }`}
-              onClick={() => setEditing(phil.settings)}
+              onClick={() => setEditing(migratePhilosophy(phil.settings))}
             >
               <div className="font-semibold">{phil.name}</div>
               <div className="text-sm text-gray-600">{phil.description}</div>
