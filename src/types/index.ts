@@ -45,7 +45,7 @@ export interface RawPlayerCSV {
   "EYE vR": string;
   "K vR": string;
   // Batting Potential
-  "HT P": string; // BABIP Potential
+  "HT P": string;
   "CON P": string;
   "GAP P": string;
   "POW P": string;
@@ -58,25 +58,21 @@ export interface RawPlayerCSV {
   // Pitching ratings
   STU: string;
   MOV: string;
-  // Note: CON appears twice (batting and pitching control)
   PBABIP: string;
   HRR: string;
   // Pitching vs L
   "STU vL": string;
   "MOV vL": string;
-  // "CON vL" is shared with batting contact vs L
   "PBABIP vL": string;
   "HRR vL": string;
   // Pitching vs R
   "STU vR": string;
   "MOV vR": string;
-  // "CON vR" is shared with batting contact vs R
   "PBABIP vR": string;
   "HRR vR": string;
   // Pitching Potential
   "STU P": string;
   "MOV P": string;
-  // "CON P" is shared with batting contact potential (context dependent)
   "PBABIP P": string;
   "HRR P": string;
   // Pitch Arsenal
@@ -107,7 +103,7 @@ export interface RawPlayerCSV {
   // Pitching attributes
   "G/F": string;
   VELO: string;
-  VT: string; // Velocity Potential
+  VT: string;
   Slot: string;
   PT: string;
   STM: string;
@@ -160,26 +156,22 @@ export interface BattingRatings {
   power: number | null;
   eye: number | null;
   avoidK: number | null;
-  // vs Left
   contactVsL: number | null;
   gapVsL: number | null;
   powerVsL: number | null;
   eyeVsL: number | null;
   avoidKVsL: number | null;
-  // vs Right
   contactVsR: number | null;
   gapVsR: number | null;
   powerVsR: number | null;
   eyeVsR: number | null;
   avoidKVsR: number | null;
-  // Potential
   babipPot: number | null;
   contactPot: number | null;
   gapPot: number | null;
   powerPot: number | null;
   eyePot: number | null;
   avoidKPot: number | null;
-  // Tendencies
   battedBallType: string | null;
   groundBallTendency: string | null;
   flyBallTendency: string | null;
@@ -191,25 +183,21 @@ export interface PitchingRatings {
   control: number | null;
   pBabip: number | null;
   hrRate: number | null;
-  // vs Left
   stuffVsL: number | null;
   movementVsL: number | null;
   controlVsL: number | null;
   pBabipVsL: number | null;
   hrRateVsL: number | null;
-  // vs Right
   stuffVsR: number | null;
   movementVsR: number | null;
   controlVsR: number | null;
   pBabipVsR: number | null;
   hrRateVsR: number | null;
-  // Potential
   stuffPot: number | null;
   movementPot: number | null;
   controlPot: number | null;
   pBabipPot: number | null;
   hrRatePot: number | null;
-  // Attributes
   groundFlyRatio: string | null;
   velocity: string | null;
   velocityPotential: string | null;
@@ -247,20 +235,16 @@ export interface PitchArsenal {
 }
 
 export interface DefenseRatings {
-  // Catcher
   catcherAbility: number | null;
   catcherFraming: number | null;
   catcherArm: number | null;
-  // Infield
   infieldRange: number | null;
   infieldError: number | null;
   infieldArm: number | null;
   turnDoublePlay: number | null;
-  // Outfield
   outfieldRange: number | null;
   outfieldError: number | null;
   outfieldArm: number | null;
-  // Position ratings
   catcher: number | null;
   firstBase: number | null;
   secondBase: number | null;
@@ -269,7 +253,6 @@ export interface DefenseRatings {
   leftField: number | null;
   centerField: number | null;
   rightField: number | null;
-  // Position potential
   catcherPot: number | null;
   firstBasePot: number | null;
   secondBasePot: number | null;
@@ -349,7 +332,7 @@ export interface Player {
   draftPick: number | null;
   draftTeam: string | null;
   
-  // Rankings info (if player is in user's rankings)
+  // Rankings info
   ranking?: {
     id: string;
     tier: number;
@@ -392,85 +375,129 @@ export type Tier = 'Elite' | 'Very Good' | 'Good' | 'Average' | 'Filler';
 export interface ScoreBreakdown {
   potentialContribution: number;
   overallContribution: number;
+  skillsContribution: number;
   riskPenalty: number;
-  signabilityBonus: number;
   positionBonus: number;
+  personalityAdjustment: number;
+  otherBonuses: number;
   ratingContributions: Record<string, number>;
   total: number;
 }
 
-// CORRECTED DRAFT PHILOSOPHY TYPES
-// Replace the existing DraftPhilosophy interface, DEFAULT_PHILOSOPHY, and PHILOSOPHY_PRESETS
-// with this code in your src/types/index.ts file
+// ==================== DRAFT PHILOSOPHY ====================
+// 
+// HOW PLAYER SCORES ARE CALCULATED:
+// 
+// The composite score (0-100+) comes from three parts:
+// 
+// 1. BASE SCORE (POT + OVR weights, should sum to ~60-80%):
+//    - POT Weight: What % of score comes from potential rating (20-80 → 0-100)
+//    - OVR Weight: What % of score comes from overall rating
+//    - The remaining % comes from individual skill ratings
+// 
+// 2. SKILLS (the leftover % after POT + OVR):
+//    - Batters: Weighted average of Power, Contact, Eye, Gap, Speed, Defense potentials
+//    - Pitchers: Weighted average of Stuff, Movement/PBABIP, Control, Stamina, Arsenal
+// 
+// 3. ADJUSTMENTS (flat bonuses/penalties added to the score):
+//    - Risk: High/Very High risk players lose points
+//    - Position: Priority positions get bonus points
+//    - Personality: Work ethic, intelligence, durability, etc.
+//    - Preferences: College/HS, batter type, pitcher type bonuses
+// 
+// EXAMPLE: 70 POT / 35 OVR SS with High Work Ethic, default weights:
+//   POT (40%): 70 → 83.3 normalized × 40% = 33.3 pts
+//   OVR (20%): 35 → 25.0 normalized × 20% = 5.0 pts  
+//   Skills (40%): Weighted avg of tools × 40% = ~30 pts
+//   Adjustments: +5 High Work Ethic, +5 SS position = +10 pts
+//   TOTAL: ~78 points → "Elite" tier
 
 export interface DraftPhilosophy {
-  id?: string; // Optional for new philosophies
+  id?: string;
   name: string;
   description?: string;
   isActive: boolean;
-  isPreset: boolean; // True for built-in presets
+  isPreset: boolean;
   
-  // Global weights (must sum to 100)
-  potentialWeight: number;
-  overallWeight: number;
-  riskWeight: number;
-  signabilityWeight: number;
+  // Base weights (POT + OVR should sum to 60-80, remainder goes to skills)
+  potentialWeight: number;  // % of score from POT rating
+  overallWeight: number;    // % of score from OVR rating
+  // Skills automatically get (100 - potentialWeight - overallWeight)%
+  
+  // Risk penalties (flat points subtracted)
+  riskPenalties: {
+    veryHigh: number;
+    high: number;
+    medium: number;
+  };
+  
+  // Personality bonuses (flat points added)
+  personalityBonuses: {
+    highWorkEthic: number;
+    highIntelligence: number;
+    leadership: number;
+    highAdaptability: number;
+    durable: number;
+  };
+  
+  // Personality penalties (flat points subtracted)
+  personalityPenalties: {
+    lowWorkEthic: number;
+    lowIntelligence: number;
+    lowAdaptability: number;
+    injuryProne: number;
+  };
   
   // Preferences
   collegeVsHS: 'college' | 'hs' | 'neutral';
-  collegeHSBonus: number; // Single bonus field
+  collegeHSBonus: number;
   
-  // Batter batted ball types (multi-select)
-  preferredBatterTypes: string[]; // ['Flyball', 'Line Drive', 'Normal', 'Groundball']
+  preferredBatterTypes: string[];
   batterTypeBonus: number;
   
-  // Pitcher ground/fly types (multi-select)
-  preferredPitcherTypes: string[]; // ['EX GB', 'GB', 'NEU', 'FB', 'EX FB']
+  preferredPitcherTypes: string[];
   pitcherTypeBonus: number;
   
-  // Position priority (multi-select)
   priorityPositions: string[];
   positionBonus: number;
   
-  // Contact vs BABIP+K choice
+  // Batter rating weights (should sum to 100)
   useBabipKs: boolean;
-  
-  // Batter rating weights (must sum to 100)
   batterWeights: {
     power: number;
-    contact: number; // Used when useBabipKs = false
-    babip: number;    // Used when useBabipKs = true
-    avoidK: number;   // Used when useBabipKs = true
+    contact: number;
+    babip: number;
+    avoidK: number;
     eye: number;
     gap: number;
-    speed: number;    // Split from speedDefense
-    defense: number;  // Split from speedDefense
+    speed: number;
+    defense: number;
   };
   
-  // SP rating weights (must sum to 100)
-  useMovementSP: boolean; // Toggle for SP
+  // SP rating weights (should sum to 100)
+  useMovementSP: boolean;
   spWeights: {
     stuff: number;
-    movement: number; // Used when useMovementSP = true
+    movement: number;
     control: number;
-    pBabip: number;   // Used when useMovementSP = false
-    hrRate: number;   // Used when useMovementSP = false
+    pBabip: number;
+    hrRate: number;
     stamina: number;
     arsenal: number;
   };
   
-  // RP/CL rating weights (must sum to 100)
-  useMovementRP: boolean; // Toggle for RP
+  // RP/CL rating weights (should sum to 100)
+  useMovementRP: boolean;
   rpWeights: {
     stuff: number;
-    movement: number; // Used when useMovementRP = true
+    movement: number;
     control: number;
-    pBabip: number;   // Used when useMovementRP = false
-    hrRate: number;   // Used when useMovementRP = false
+    pBabip: number;
+    hrRate: number;
     arsenal: number;
   };
   
-  // Tier thresholds
+  // Tier thresholds (score needed for each tier)
   tierThresholds: {
     elite: number;
     veryGood: number;
@@ -481,304 +508,163 @@ export interface DraftPhilosophy {
 
 export const DEFAULT_PHILOSOPHY: DraftPhilosophy = {
   name: 'Default',
-  description: 'Balanced approach',
+  description: 'Balanced approach valuing potential and tools equally',
   isActive: true,
   isPreset: false,
   
-  potentialWeight: 50,
+  potentialWeight: 40,
   overallWeight: 20,
-  riskWeight: 15,
-  signabilityWeight: 15,
+  
+  riskPenalties: {
+    veryHigh: 15,
+    high: 10,
+    medium: 5,
+  },
+  
+  personalityBonuses: {
+    highWorkEthic: 5,
+    highIntelligence: 3,
+    leadership: 2,
+    highAdaptability: 2,
+    durable: 3,
+  },
+  
+  personalityPenalties: {
+    lowWorkEthic: 8,
+    lowIntelligence: 3,
+    lowAdaptability: 2,
+    injuryProne: 5,
+  },
   
   collegeVsHS: 'neutral',
   collegeHSBonus: 5,
   
   preferredBatterTypes: [],
-  batterTypeBonus: 5,
+  batterTypeBonus: 3,
   
   preferredPitcherTypes: [],
-  pitcherTypeBonus: 5,
+  pitcherTypeBonus: 3,
   
   priorityPositions: [],
-  positionBonus: 10,
+  positionBonus: 5,
   
   useBabipKs: false,
-  
   batterWeights: {
     power: 25,
     contact: 25,
-    babip: 0,
-    avoidK: 0,
-    eye: 20,
-    gap: 15,
+    babip: 15,
+    avoidK: 10,
+    eye: 15,
+    gap: 10,
     speed: 10,
-    defense: 5,
+    defense: 15,
   },
   
-  useMovementSP: false,
+  useMovementSP: true,
   spWeights: {
-    stuff: 25,
-    movement: 0,
+    stuff: 30,
+    movement: 25,
     control: 20,
     pBabip: 15,
-    hrRate: 15,
-    stamina: 20,
-    arsenal: 5,
-  },
-  
-  useMovementRP: false,
-  rpWeights: {
-    stuff: 30,
-    movement: 0,
-    control: 20,
-    pBabip: 20,
-    hrRate: 20,
+    hrRate: 10,
+    stamina: 15,
     arsenal: 10,
   },
   
-  tierThresholds: {
-    elite: 80,
-    veryGood: 65,
-    good: 50,
-    average: 35,
+  useMovementRP: true,
+  rpWeights: {
+    stuff: 35,
+    movement: 25,
+    control: 20,
+    pBabip: 15,
+    hrRate: 10,
+    arsenal: 15,
   },
-};
-
-// Presets  
-type PhilosophyBase = Omit<DraftPhilosophy, 'name' | 'description' | 'isActive' | 'isPreset'>;
-const defaultPhilosophyBase: PhilosophyBase = {
-  potentialWeight: DEFAULT_PHILOSOPHY.potentialWeight,
-  overallWeight: DEFAULT_PHILOSOPHY.overallWeight,
-  riskWeight: DEFAULT_PHILOSOPHY.riskWeight,
-  signabilityWeight: DEFAULT_PHILOSOPHY.signabilityWeight,
-  collegeVsHS: DEFAULT_PHILOSOPHY.collegeVsHS,
-  collegeHSBonus: DEFAULT_PHILOSOPHY.collegeHSBonus,
-  preferredBatterTypes: DEFAULT_PHILOSOPHY.preferredBatterTypes,
-  batterTypeBonus: DEFAULT_PHILOSOPHY.batterTypeBonus,
-  preferredPitcherTypes: DEFAULT_PHILOSOPHY.preferredPitcherTypes,
-  pitcherTypeBonus: DEFAULT_PHILOSOPHY.pitcherTypeBonus,
-  priorityPositions: DEFAULT_PHILOSOPHY.priorityPositions,
-  positionBonus: DEFAULT_PHILOSOPHY.positionBonus,
-  useBabipKs: DEFAULT_PHILOSOPHY.useBabipKs,
-  batterWeights: DEFAULT_PHILOSOPHY.batterWeights,
-  useMovementSP: DEFAULT_PHILOSOPHY.useMovementSP,
-  spWeights: DEFAULT_PHILOSOPHY.spWeights,
-  useMovementRP: DEFAULT_PHILOSOPHY.useMovementRP,
-  rpWeights: DEFAULT_PHILOSOPHY.rpWeights,
-  tierThresholds: DEFAULT_PHILOSOPHY.tierThresholds,
+  
+  tierThresholds: {
+    elite: 75,
+    veryGood: 60,
+    good: 45,
+    average: 30,
+  },
 };
 
 export const PHILOSOPHY_PRESETS: Record<string, DraftPhilosophy> = {
   balanced: {
-    ...defaultPhilosophyBase,
+    ...DEFAULT_PHILOSOPHY,
     name: 'Balanced',
-    description: 'A well-rounded approach',
+    description: 'Even weight between ceiling and floor',
     isActive: false,
     isPreset: true,
   },
   highCeiling: {
-    ...defaultPhilosophyBase,
+    ...DEFAULT_PHILOSOPHY,
     name: 'High Ceiling',
-    description: 'Maximize upside, accept risk',
+    description: 'Chase upside, accept risk',
     isActive: false,
     isPreset: true,
-    potentialWeight: 60,
+    potentialWeight: 50,
     overallWeight: 10,
-    riskWeight: 10,
-    signabilityWeight: 20,
+    riskPenalties: { veryHigh: 8, high: 5, medium: 2 },
     collegeVsHS: 'hs',
-    collegeHSBonus: 10,
-    preferredBatterTypes: [],
-    batterTypeBonus: 5,
-    preferredPitcherTypes: [],
-    pitcherTypeBonus: 5,
-    priorityPositions: [],
-    positionBonus: 10,
-    useBabipKs: false,
+    collegeHSBonus: 5,
     batterWeights: {
-      power: 30,
-      contact: 20,
-      babip: 0,
-      avoidK: 0,
-      eye: 15,
-      gap: 15,
-      speed: 15,
-      defense: 5,
+      power: 30, contact: 20, babip: 15, avoidK: 10,
+      eye: 10, gap: 10, speed: 15, defense: 5,
     },
-    useMovementSP: false,
     spWeights: {
-      stuff: 30,
-      movement: 0,
-      control: 15,
-      pBabip: 15,
-      hrRate: 15,
-      stamina: 20,
-      arsenal: 5,
-    },
-    useMovementRP: false,
-    rpWeights: {
-      stuff: 35,
-      movement: 0,
-      control: 15,
-      pBabip: 20,
-      hrRate: 20,
-      arsenal: 10,
-    },
-    tierThresholds: {
-      elite: 80,
-      veryGood: 65,
-      good: 50,
-      average: 35,
+      stuff: 35, movement: 25, control: 15,
+      pBabip: 15, hrRate: 10, stamina: 15, arsenal: 10,
     },
   },
-  safeSteady: {
-    ...defaultPhilosophyBase,
-    name: 'Safe & Steady',
-    description: 'Minimize risk, prefer polished players',
+  safePicks: {
+    ...DEFAULT_PHILOSOPHY,
+    name: 'Safe Picks',
+    description: 'Polished players, minimize bust risk',
     isActive: false,
     isPreset: true,
-    potentialWeight: 25,
+    potentialWeight: 30,
     overallWeight: 35,
-    riskWeight: 25,
-    signabilityWeight: 15,
+    riskPenalties: { veryHigh: 20, high: 15, medium: 8 },
+    personalityBonuses: {
+      highWorkEthic: 8, highIntelligence: 5,
+      leadership: 3, highAdaptability: 3, durable: 5,
+    },
     collegeVsHS: 'college',
-    collegeHSBonus: 15,
-    preferredBatterTypes: [],
-    batterTypeBonus: 5,
-    preferredPitcherTypes: [],
-    pitcherTypeBonus: 5,
-    priorityPositions: [],
-    positionBonus: 10,
-    useBabipKs: false,
-    batterWeights: {
-      power: 20,
-      contact: 30,
-      babip: 0,
-      avoidK: 0,
-      eye: 25,
-      gap: 15,
-      speed: 5,
-      defense: 5,
-    },
-    useMovementSP: false,
-    spWeights: {
-      stuff: 20,
-      movement: 0,
-      control: 25,
-      pBabip: 20,
-      hrRate: 15,
-      stamina: 15,
-      arsenal: 5,
-    },
-    useMovementRP: false,
-    rpWeights: {
-      stuff: 25,
-      movement: 0,
-      control: 25,
-      pBabip: 20,
-      hrRate: 20,
-      arsenal: 10,
-    },
-    tierThresholds: {
-      elite: 80,
-      veryGood: 65,
-      good: 50,
-      average: 35,
-    },
+    collegeHSBonus: 8,
   },
-  pitchingHeavy: {
-    ...defaultPhilosophyBase,
-    name: 'Pitching Heavy',
-    description: 'Build from the mound',
+  toolsFirst: {
+    ...DEFAULT_PHILOSOPHY,
+    name: 'Tools First',
+    description: 'Raw athleticism over polish',
     isActive: false,
     isPreset: true,
-    preferredPitcherTypes: ['GB', 'EX GB'],
-    pitcherTypeBonus: 10,
-    priorityPositions: ['SP', 'RP', 'CL'],
-    positionBonus: 15,
-  },
-  positionPlayerFocus: {
-    ...defaultPhilosophyBase,
-    name: 'Position Player Focus',
-    description: 'Bats win championships',
-    isActive: false,
-    isPreset: true,
-    priorityPositions: ['C', 'SS', 'CF'],
-    positionBonus: 15,
+    potentialWeight: 35,
+    overallWeight: 15,
     batterWeights: {
-      power: 30,
-      contact: 25,
-      babip: 0,
-      avoidK: 0,
-      eye: 20,
-      gap: 15,
-      speed: 5,
-      defense: 5,
+      power: 25, contact: 15, babip: 10, avoidK: 10,
+      eye: 10, gap: 10, speed: 25, defense: 20,
     },
   },
   premiumPositions: {
-    ...defaultPhilosophyBase,
+    ...DEFAULT_PHILOSOPHY,
     name: 'Premium Positions',
-    description: 'Focus on hard-to-fill positions',
+    description: 'Up-the-middle and SP focus',
     isActive: false,
     isPreset: true,
-    priorityPositions: ['C', '2B', 'SS', '3B', 'CF', 'SP'],
-    positionBonus: 20,
-  },
-  toolsOverProduction: {
-    ...defaultPhilosophyBase,
-    name: 'Tools Over Production',
-    description: 'Raw athleticism and projectability',
-    isActive: false,
-    isPreset: true,
-    potentialWeight: 55,
-    overallWeight: 10,
-    riskWeight: 15,
-    signabilityWeight: 20,
-    collegeVsHS: 'hs',
-    collegeHSBonus: 10,
-    preferredBatterTypes: [],
-    batterTypeBonus: 5,
-    preferredPitcherTypes: [],
-    pitcherTypeBonus: 5,
-    priorityPositions: [],
+    priorityPositions: ['C', 'SS', '2B', 'CF', 'SP'],
     positionBonus: 10,
-    useBabipKs: false,
-    batterWeights: {
-      power: 20,
-      contact: 15,
-      babip: 0,
-      avoidK: 0,
-      eye: 15,
-      gap: 15,
-      speed: 20,
-      defense: 15,
-    },
-    useMovementSP: false,
-    spWeights: {
-      stuff: 30,
-      movement: 0,
-      control: 15,
-      pBabip: 15,
-      hrRate: 15,
-      stamina: 20,
-      arsenal: 5,
-    },
-    useMovementRP: false,
-    rpWeights: {
-      stuff: 35,
-      movement: 0,
-      control: 15,
-      pBabip: 20,
-      hrRate: 20,
-      arsenal: 10,
-    },
-    tierThresholds: {
-      elite: 80,
-      veryGood: 65,
-      good: 50,
-      average: 35,
-    },
+  },
+  pitchingFirst: {
+    ...DEFAULT_PHILOSOPHY,
+    name: 'Pitching First',
+    description: 'Build from the mound',
+    isActive: false,
+    isPreset: true,
+    priorityPositions: ['SP', 'RP', 'CL'],
+    positionBonus: 8,
+    preferredPitcherTypes: ['GB', 'EX GB'],
+    pitcherTypeBonus: 5,
   },
 };
 
@@ -822,6 +708,7 @@ export const RED_FLAGS = [
   'Low Work Ethic',
   'Hard to Scout',
   'Low Intelligence',
+  'Low Adaptability',
   'High Demand',
 ] as const;
 
@@ -829,7 +716,6 @@ export const GREEN_FLAGS = [
   'Low Risk',
   'Durable',
   'High Work Ethic',
-  'Easy to Scout',
   'High Intelligence',
   'Leader',
   'High Adaptability',

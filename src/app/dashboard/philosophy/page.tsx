@@ -45,10 +45,9 @@ export default function PhilosophyPage() {
   }
 
   function isValid(): boolean {
-    // Check global weights
-    const globalTotal = editing.potentialWeight + editing.overallWeight + 
-                       editing.riskWeight + editing.signabilityWeight;
-    if (Math.abs(globalTotal - 100) > 0.01) return false;
+    // Check base weights (POT + OVR should be between 40-80, leaving room for skills)
+    const baseTotal = editing.potentialWeight + editing.overallWeight;
+    if (baseTotal < 20 || baseTotal > 90) return false;
     
     // Check batter weights
     const batterExclude = editing.useBabipKs ? ['contact'] : ['babip', 'avoidK'];
@@ -71,18 +70,15 @@ export default function PhilosophyPage() {
   async function handleSave() {
     setSaving(true);
     try {
-      // Check if we're updating an existing philosophy (has id and is not a preset)
       const isUpdating = editing.id && !editing.isPreset;
       
       if (isUpdating) {
-        // Update existing
         await fetch(`/api/philosophy/${editing.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ philosophy: editing }),
         });
       } else {
-        // Create new (remove id if it exists to force creation)
         const { id, ...philosophyData } = editing;
         await fetch('/api/philosophy/create', {
           method: 'POST',
@@ -148,8 +144,8 @@ export default function PhilosophyPage() {
     return <div className="p-8">Loading...</div>;
   }
 
-  const globalTotal = editing.potentialWeight + editing.overallWeight + 
-                     editing.riskWeight + editing.signabilityWeight;
+  const baseTotal = editing.potentialWeight + editing.overallWeight;
+  const skillsWeight = 100 - baseTotal;
   const batterExclude = editing.useBabipKs ? ['contact'] : ['babip', 'avoidK'];
   const batterTotal = calculateTotal(editing.batterWeights, batterExclude);
   const spExclude = editing.useMovementSP ? ['pBabip', 'hrRate'] : ['movement'];
@@ -187,29 +183,40 @@ export default function PhilosophyPage() {
         </h2>
         <div className="space-y-4 text-sm text-dugout-700 dark:text-dugout-300">
           <p className="leading-relaxed">
-            Each player receives a <span className="font-semibold text-blue-600 dark:text-blue-400">Composite Score</span> based on your philosophy settings below. This score determines their ranking on your draft board.
+            Each player receives a <span className="font-semibold text-blue-600 dark:text-blue-400">Composite Score</span> (typically 0-100) based on three parts:
           </p>
           <div className="bg-white dark:bg-gray-900 rounded-lg p-4 border border-gray-300 dark:border-gray-700">
             <div className="font-mono text-xs space-y-2">
-              <div><span className="font-semibold">Composite Score =</span></div>
-              <div className="ml-4">(<span className="text-blue-600 dark:text-blue-400">Potential Weight</span> × Tool-Weighted Potential Score) +</div>
-              <div className="ml-4">(<span className="text-blue-600 dark:text-blue-400">Overall Weight</span> × Tool-Weighted Overall Score) +</div>
-              <div className="ml-4"><span className="text-green-600">Preference Bonuses</span> -</div>
-              <div className="ml-4"><span className="text-red-600">Risk Penalty</span></div>
+              <div><span className="font-semibold">1. BASE SCORE</span> (POT + OVR weights)</div>
+              <div className="ml-4 text-blue-600">POT rating × {editing.potentialWeight}% + OVR rating × {editing.overallWeight}%</div>
+              <div className="mt-2"><span className="font-semibold">2. SKILLS SCORE</span> (remaining {skillsWeight}%)</div>
+              <div className="ml-4 text-purple-600">Weighted average of individual ratings (Power, Contact, Stuff, etc.)</div>
+              <div className="mt-2"><span className="font-semibold">3. ADJUSTMENTS</span> (flat bonuses/penalties)</div>
+              <div className="ml-4 text-green-600">+ Position bonus, + Personality bonuses, + Preference bonuses</div>
+              <div className="ml-4 text-red-600">− Risk penalty, − Personality penalties</div>
             </div>
           </div>
           <div className="grid md:grid-cols-2 gap-4 mt-4">
             <div className="bg-white dark:bg-gray-900 rounded-lg p-4 border border-gray-300 dark:border-gray-700">
-              <div className="font-semibold text-dugout-900 dark:text-white mb-2">Tool-Weighted Scores</div>
-              <p className="text-xs leading-relaxed">
-                Individual tool ratings (Contact, Power, Stuff, Movement, etc.) are weighted by your slider settings to create overall Potential and Overall scores for each player.
-              </p>
+              <div className="font-semibold text-dugout-900 dark:text-white mb-2">Example: 70 POT / 35 OVR SS</div>
+              <div className="text-xs space-y-1">
+                <div>POT: 70 → 83 normalized × 40% = <span className="text-blue-600">33 pts</span></div>
+                <div>OVR: 35 → 25 normalized × 20% = <span className="text-blue-600">5 pts</span></div>
+                <div>Skills: weighted avg × 40% ≈ <span className="text-purple-600">30 pts</span></div>
+                <div>+ High Work Ethic = <span className="text-green-600">+5 pts</span></div>
+                <div>− High Risk = <span className="text-red-600">−10 pts</span></div>
+                <div className="font-semibold mt-1">Total: ~63 pts → "Very Good"</div>
+              </div>
             </div>
             <div className="bg-white dark:bg-gray-900 rounded-lg p-4 border border-gray-300 dark:border-gray-700">
-              <div className="font-semibold text-dugout-900 dark:text-white mb-2">Preference Bonuses</div>
-              <p className="text-xs leading-relaxed">
-                Additional points awarded for College/HS preference, batter type preference, pitcher type preference, and priority positions. Scores can exceed 100.
-              </p>
+              <div className="font-semibold text-dugout-900 dark:text-white mb-2">Rating Scale</div>
+              <div className="text-xs space-y-1">
+                <div>OOTP uses 20-80 scale</div>
+                <div>We normalize to 0-100:</div>
+                <div className="ml-2">20 rating → 0 pts</div>
+                <div className="ml-2">50 rating → 50 pts</div>
+                <div className="ml-2">80 rating → 100 pts</div>
+              </div>
             </div>
           </div>
         </div>
@@ -257,7 +264,7 @@ export default function PhilosophyPage() {
         </div>
       </div>
 
-      {/* Global Weights */}
+      {/* Philosophy Info & Base Weights */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold mb-4">Philosophy Info</h2>
         <div className="space-y-4 mb-6">
@@ -283,19 +290,17 @@ export default function PhilosophyPage() {
           </div>
         </div>
 
-        <h3 className="text-lg font-semibold mb-4">
-          Global Weights 
-          <span className={`ml-2 text-sm ${Math.abs(globalTotal - 100) < 0.01 ? 'text-green-600' : 'text-red-600'}`}>
-            (Total: {globalTotal.toFixed(1)}%)
-          </span>
-        </h3>
+        <h3 className="text-lg font-semibold mb-2">Base Weights</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          POT + OVR = {baseTotal}% of score. Remaining {skillsWeight}% comes from individual skill ratings.
+        </p>
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-2">Potential Weight: {editing.potentialWeight}%</label>
             <input
               type="range"
               min="0"
-              max="100"
+              max="80"
               value={editing.potentialWeight}
               onChange={(e) => setEditing({...editing, potentialWeight: Number(e.target.value)})}
               className="w-full"
@@ -306,31 +311,173 @@ export default function PhilosophyPage() {
             <input
               type="range"
               min="0"
-              max="100"
+              max="80"
               value={editing.overallWeight}
               onChange={(e) => setEditing({...editing, overallWeight: Number(e.target.value)})}
               className="w-full"
             />
           </div>
+          <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
+            <div className="text-sm font-medium">Skills Weight: {skillsWeight}% (automatic)</div>
+            <div className="text-xs text-gray-600 dark:text-gray-400">
+              This portion comes from individual ratings like Power, Contact, Stuff, etc.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Risk Penalties */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <h2 className="text-xl font-semibold mb-2">Risk Penalties</h2>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          Points subtracted from players based on their risk level
+        </p>
+        <div className="grid grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-2">Risk Weight: {editing.riskWeight}%</label>
+            <label className="block text-sm font-medium mb-2 text-red-600">Very High Risk: −{editing.riskPenalties.veryHigh}</label>
             <input
               type="range"
               min="0"
-              max="100"
-              value={editing.riskWeight}
-              onChange={(e) => setEditing({...editing, riskWeight: Number(e.target.value)})}
+              max="30"
+              value={editing.riskPenalties.veryHigh}
+              onChange={(e) => setEditing({...editing, riskPenalties: {...editing.riskPenalties, veryHigh: Number(e.target.value)}})}
               className="w-full"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2">Signability Weight: {editing.signabilityWeight}%</label>
+            <label className="block text-sm font-medium mb-2 text-orange-600">High Risk: −{editing.riskPenalties.high}</label>
             <input
               type="range"
               min="0"
-              max="100"
-              value={editing.signabilityWeight}
-              onChange={(e) => setEditing({...editing, signabilityWeight: Number(e.target.value)})}
+              max="20"
+              value={editing.riskPenalties.high}
+              onChange={(e) => setEditing({...editing, riskPenalties: {...editing.riskPenalties, high: Number(e.target.value)}})}
+              className="w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2 text-yellow-600">Medium Risk: −{editing.riskPenalties.medium}</label>
+            <input
+              type="range"
+              min="0"
+              max="15"
+              value={editing.riskPenalties.medium}
+              onChange={(e) => setEditing({...editing, riskPenalties: {...editing.riskPenalties, medium: Number(e.target.value)}})}
+              className="w-full"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Personality Adjustments */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <h2 className="text-xl font-semibold mb-2">Personality Adjustments</h2>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          Flat points added or subtracted based on player personality traits
+        </p>
+        
+        <h3 className="text-md font-semibold mb-3 text-green-600">Bonuses (positive traits)</h3>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+          <div>
+            <label className="block text-sm font-medium mb-2">High Work Ethic: +{editing.personalityBonuses.highWorkEthic}</label>
+            <input
+              type="range"
+              min="0"
+              max="15"
+              value={editing.personalityBonuses.highWorkEthic}
+              onChange={(e) => setEditing({...editing, personalityBonuses: {...editing.personalityBonuses, highWorkEthic: Number(e.target.value)}})}
+              className="w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">High Intelligence: +{editing.personalityBonuses.highIntelligence}</label>
+            <input
+              type="range"
+              min="0"
+              max="15"
+              value={editing.personalityBonuses.highIntelligence}
+              onChange={(e) => setEditing({...editing, personalityBonuses: {...editing.personalityBonuses, highIntelligence: Number(e.target.value)}})}
+              className="w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Leadership: +{editing.personalityBonuses.leadership}</label>
+            <input
+              type="range"
+              min="0"
+              max="10"
+              value={editing.personalityBonuses.leadership}
+              onChange={(e) => setEditing({...editing, personalityBonuses: {...editing.personalityBonuses, leadership: Number(e.target.value)}})}
+              className="w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">High Adaptability: +{editing.personalityBonuses.highAdaptability}</label>
+            <input
+              type="range"
+              min="0"
+              max="10"
+              value={editing.personalityBonuses.highAdaptability}
+              onChange={(e) => setEditing({...editing, personalityBonuses: {...editing.personalityBonuses, highAdaptability: Number(e.target.value)}})}
+              className="w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Durable: +{editing.personalityBonuses.durable}</label>
+            <input
+              type="range"
+              min="0"
+              max="10"
+              value={editing.personalityBonuses.durable}
+              onChange={(e) => setEditing({...editing, personalityBonuses: {...editing.personalityBonuses, durable: Number(e.target.value)}})}
+              className="w-full"
+            />
+          </div>
+        </div>
+
+        <h3 className="text-md font-semibold mb-3 text-red-600">Penalties (negative traits)</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Low Work Ethic: −{editing.personalityPenalties.lowWorkEthic}</label>
+            <input
+              type="range"
+              min="0"
+              max="15"
+              value={editing.personalityPenalties.lowWorkEthic}
+              onChange={(e) => setEditing({...editing, personalityPenalties: {...editing.personalityPenalties, lowWorkEthic: Number(e.target.value)}})}
+              className="w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Low Intelligence: −{editing.personalityPenalties.lowIntelligence}</label>
+            <input
+              type="range"
+              min="0"
+              max="15"
+              value={editing.personalityPenalties.lowIntelligence}
+              onChange={(e) => setEditing({...editing, personalityPenalties: {...editing.personalityPenalties, lowIntelligence: Number(e.target.value)}})}
+              className="w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Low Adaptability: −{editing.personalityPenalties.lowAdaptability}</label>
+            <input
+              type="range"
+              min="0"
+              max="10"
+              value={editing.personalityPenalties.lowAdaptability}
+              onChange={(e) => setEditing({...editing, personalityPenalties: {...editing.personalityPenalties, lowAdaptability: Number(e.target.value)}})}
+              className="w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Injury Prone: −{editing.personalityPenalties.injuryProne}</label>
+            <input
+              type="range"
+              min="0"
+              max="15"
+              value={editing.personalityPenalties.injuryProne}
+              onChange={(e) => setEditing({...editing, personalityPenalties: {...editing.personalityPenalties, injuryProne: Number(e.target.value)}})}
               className="w-full"
             />
           </div>
@@ -359,7 +506,7 @@ export default function PhilosophyPage() {
           </div>
           {editing.collegeVsHS !== 'neutral' && (
             <div>
-              <label className="block text-sm mb-2">Bonus: {editing.collegeHSBonus}</label>
+              <label className="block text-sm mb-2">Bonus: +{editing.collegeHSBonus}</label>
               <input
                 type="range"
                 min="0"
@@ -396,11 +543,11 @@ export default function PhilosophyPage() {
           </div>
           {editing.preferredBatterTypes.length > 0 && (
             <div>
-              <label className="block text-sm mb-2">Bonus: {editing.batterTypeBonus}</label>
+              <label className="block text-sm mb-2">Bonus: +{editing.batterTypeBonus}</label>
               <input
                 type="range"
                 min="0"
-                max="20"
+                max="15"
                 value={editing.batterTypeBonus}
                 onChange={(e) => setEditing({...editing, batterTypeBonus: Number(e.target.value)})}
                 className="w-full"
@@ -433,11 +580,11 @@ export default function PhilosophyPage() {
           </div>
           {editing.preferredPitcherTypes.length > 0 && (
             <div>
-              <label className="block text-sm mb-2">Bonus: {editing.pitcherTypeBonus}</label>
+              <label className="block text-sm mb-2">Bonus: +{editing.pitcherTypeBonus}</label>
               <input
                 type="range"
                 min="0"
-                max="20"
+                max="15"
                 value={editing.pitcherTypeBonus}
                 onChange={(e) => setEditing({...editing, pitcherTypeBonus: Number(e.target.value)})}
                 className="w-full"
@@ -470,11 +617,11 @@ export default function PhilosophyPage() {
           </div>
           {editing.priorityPositions.length > 0 && (
             <div>
-              <label className="block text-sm mb-2">Bonus: {editing.positionBonus}</label>
+              <label className="block text-sm mb-2">Bonus: +{editing.positionBonus}</label>
               <input
                 type="range"
                 min="0"
-                max="30"
+                max="20"
                 value={editing.positionBonus}
                 onChange={(e) => setEditing({...editing, positionBonus: Number(e.target.value)})}
                 className="w-full"
@@ -487,11 +634,14 @@ export default function PhilosophyPage() {
       {/* Batter Weights */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold mb-4">
-          Batter Weights
+          Batter Skill Weights
           <span className={`ml-2 text-sm ${Math.abs(batterTotal - 100) < 0.01 ? 'text-green-600' : 'text-red-600'}`}>
             (Total: {batterTotal.toFixed(1)}%)
           </span>
         </h2>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          How individual batting skills are weighted when calculating the skills portion of the score
+        </p>
         
         <label className="flex items-center mb-4">
           <input
@@ -500,7 +650,7 @@ export default function PhilosophyPage() {
             onChange={(e) => setEditing({...editing, useBabipKs: e.target.checked})}
             className="mr-2"
           />
-          Use BABIP + K's instead of Contact
+          Use BABIP + Avoid K&apos;s instead of Contact
         </label>
 
         <div className="space-y-4">
@@ -554,16 +704,7 @@ export default function PhilosophyPage() {
               className="w-full" />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2 flex items-center gap-2">
-              Defense: {editing.batterWeights.defense}%
-              <span className="text-xs text-gray-500 dark:text-gray-400 cursor-help" title="Defense uses the best defensive component rating (Range, Arm, or Ability) based on position. Infield/Outfield ratings only count if player has position ratings in those areas.">
-                ⓘ
-              </span>
-            </label>
-            <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
-              Defense is calculated using individual defensive components (Range, Error, Arm, Ability, Framing) rather than position ratings. 
-              Infield ratings apply only if the player has ratings at IF positions (2B, SS, 3B). Outfield ratings apply only if rated at OF positions (LF, CF, RF).
-            </p>
+            <label className="block text-sm font-medium mb-2">Defense: {editing.batterWeights.defense}%</label>
             <input type="range" min="0" max="100" value={editing.batterWeights.defense}
               onChange={(e) => setEditing({...editing, batterWeights: {...editing.batterWeights, defense: Number(e.target.value)}})}
               className="w-full" />
@@ -574,7 +715,7 @@ export default function PhilosophyPage() {
       {/* SP Weights */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold mb-4">
-          SP Weights
+          SP Skill Weights
           <span className={`ml-2 text-sm ${Math.abs(spTotal - 100) < 0.01 ? 'text-green-600' : 'text-red-600'}`}>
             (Total: {spTotal.toFixed(1)}%)
           </span>
@@ -635,13 +776,7 @@ export default function PhilosophyPage() {
               className="w-full" />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2 flex items-center gap-2">
-              Arsenal: {editing.spWeights.arsenal}%
-              <span className="text-xs text-gray-500 dark:text-gray-400 cursor-help" title="Arsenal score is based on the number of plus pitches (55+). Having 3+ pitches rated 55+ results in a perfect arsenal score.">
-                ⓘ
-              </span>
-            </label>
-            <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Arsenal is calculated by counting pitches rated 55+ (out of 80). Three or more plus pitches = maximum score.</p>
+            <label className="block text-sm font-medium mb-2">Arsenal: {editing.spWeights.arsenal}%</label>
             <input type="range" min="0" max="100" value={editing.spWeights.arsenal}
               onChange={(e) => setEditing({...editing, spWeights: {...editing.spWeights, arsenal: Number(e.target.value)}})}
               className="w-full" />
@@ -652,7 +787,7 @@ export default function PhilosophyPage() {
       {/* RP Weights */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold mb-4">
-          RP Weights
+          RP/CL Skill Weights
           <span className={`ml-2 text-sm ${Math.abs(rpTotal - 100) < 0.01 ? 'text-green-600' : 'text-red-600'}`}>
             (Total: {rpTotal.toFixed(1)}%)
           </span>
@@ -707,13 +842,7 @@ export default function PhilosophyPage() {
               className="w-full" />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-2 flex items-center gap-2">
-              Arsenal: {editing.rpWeights.arsenal}%
-              <span className="text-xs text-gray-500 dark:text-gray-400 cursor-help" title="Arsenal score is based on the number of plus pitches (55+). Having 3+ pitches rated 55+ results in a perfect arsenal score.">
-                ⓘ
-              </span>
-            </label>
-            <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Arsenal is calculated by counting pitches rated 55+ (out of 80). Three or more plus pitches = maximum score.</p>
+            <label className="block text-sm font-medium mb-2">Arsenal: {editing.rpWeights.arsenal}%</label>
             <input type="range" min="0" max="100" value={editing.rpWeights.arsenal}
               onChange={(e) => setEditing({...editing, rpWeights: {...editing.rpWeights, arsenal: Number(e.target.value)}})}
               className="w-full" />
@@ -725,8 +854,7 @@ export default function PhilosophyPage() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h2 className="text-xl font-semibold mb-2">Tier Thresholds</h2>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Players are assigned tiers based on their composite score. These thresholds determine which tier each player falls into on your draft board. 
-          Any player scoring below the "Average" threshold is classified as "Filler".
+          Minimum composite score needed for each tier. Players below &quot;Average&quot; are classified as &quot;Filler&quot;.
         </p>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
@@ -735,7 +863,7 @@ export default function PhilosophyPage() {
               type="number"
               value={editing.tierThresholds.elite}
               onChange={(e) => setEditing({...editing, tierThresholds: {...editing.tierThresholds, elite: Number(e.target.value)}})}
-              className="w-full px-3 py-2 border rounded-lg"
+              className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
             />
           </div>
           <div>
@@ -744,7 +872,7 @@ export default function PhilosophyPage() {
               type="number"
               value={editing.tierThresholds.veryGood}
               onChange={(e) => setEditing({...editing, tierThresholds: {...editing.tierThresholds, veryGood: Number(e.target.value)}})}
-              className="w-full px-3 py-2 border rounded-lg"
+              className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
             />
           </div>
           <div>
@@ -753,7 +881,7 @@ export default function PhilosophyPage() {
               type="number"
               value={editing.tierThresholds.good}
               onChange={(e) => setEditing({...editing, tierThresholds: {...editing.tierThresholds, good: Number(e.target.value)}})}
-              className="w-full px-3 py-2 border rounded-lg"
+              className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
             />
           </div>
           <div>
@@ -762,7 +890,7 @@ export default function PhilosophyPage() {
               type="number"
               value={editing.tierThresholds.average}
               onChange={(e) => setEditing({...editing, tierThresholds: {...editing.tierThresholds, average: Number(e.target.value)}})}
-              className="w-full px-3 py-2 border rounded-lg"
+              className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
             />
           </div>
         </div>

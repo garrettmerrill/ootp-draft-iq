@@ -30,17 +30,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 });
     }
 
-    // Validate global weights
-    const globalWeights = {
-      potentialWeight: philosophy.potentialWeight || 0,
-      overallWeight: philosophy.overallWeight || 0,
-      riskWeight: philosophy.riskWeight || 0,
-      signabilityWeight: philosophy.signabilityWeight || 0,
-    };
-    
-    if (!validateWeights(globalWeights)) {
+    // Validate base weights (POT + OVR should be 20-90%, leaving room for skills)
+    const baseTotal = (philosophy.potentialWeight || 0) + (philosophy.overallWeight || 0);
+    if (baseTotal < 20 || baseTotal > 90) {
       return NextResponse.json(
-        { error: 'Global weights must sum to 100' },
+        { error: 'POT + OVR weights should be between 20% and 90%' },
         { status: 400 }
       );
     }

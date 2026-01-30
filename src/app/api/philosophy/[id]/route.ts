@@ -90,18 +90,12 @@ export async function PUT(
       );
     }
 
-    // Validate global weights if provided
-    if (philosophy.potentialWeight !== undefined) {
-      const globalWeights = {
-        potentialWeight: philosophy.potentialWeight || 0,
-        overallWeight: philosophy.overallWeight || 0,
-        riskWeight: philosophy.riskWeight || 0,
-        signabilityWeight: philosophy.signabilityWeight || 0,
-      };
-      
-      if (!validateWeights(globalWeights)) {
+    // Validate base weights if provided (POT + OVR should be 20-90%)
+    if (philosophy.potentialWeight !== undefined || philosophy.overallWeight !== undefined) {
+      const baseTotal = (philosophy.potentialWeight || 0) + (philosophy.overallWeight || 0);
+      if (baseTotal < 20 || baseTotal > 90) {
         return NextResponse.json(
-          { error: 'Global weights must sum to 100' },
+          { error: 'POT + OVR weights should be between 20% and 90%' },
           { status: 400 }
         );
       }

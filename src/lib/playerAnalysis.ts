@@ -280,6 +280,7 @@ export function detectRedFlags(player: Player): string[] {
   if (player.workEthic === 'L') flags.push('Low Work Ethic');
   if (player.scoutAccuracy === 'Low' || player.scoutAccuracy === 'Very Low') flags.push('Hard to Scout');
   if (player.intelligence === 'L') flags.push('Low Intelligence');
+  if (player.adaptability === 'L') flags.push('Low Adaptability');
   
   if (player.demandAmount) {
     const amount = parseDemandAmount(player.demandAmount);
@@ -375,67 +376,253 @@ function parseDemandAmount(demand: string): number {
   return amount;
 }
 
+// Convert a 20-80 scale rating to 0-100
+function normalize(val: number | null): number {
+  if (val === null || val === undefined) return 0;
+  // 20 = 0, 50 = 50, 80 = 100
+  return Math.max(0, Math.min(100, ((val - 20) / 60) * 100));
+}
+
 // ==================== COMPOSITE SCORE ====================
+/*
+ * HOW SCORING WORKS:
+ * 
+ * The composite score has 3 main parts that add together:
+ * 
+ * 1. BASE SCORE (from POT/OVR weights):
+ *    - Your POT weight % of the player's potential rating (20-80 scale → 0-100)
+ *    - Your OVR weight % of the player's overall rating
+ *    - Example: 70 POT with 50% weight = 41.7 points, 35 OVR with 20% weight = 5 points
+ * 
+ * 2. SKILLS SCORE (from rating weights):
+ *    - The remaining % (100 - POT weight - OVR weight) comes from individual skills
+ *    - For batters: Power, Contact (or BABIP+AvoidK), Eye, Gap, Speed, Defense
+ *    - For pitchers: Stuff, Movement (or PBABIP+HR Rate), Control, Stamina, Arsenal
+ *    - Each skill is weighted by your philosophy settings
+ * 
+ * 3. ADJUSTMENTS (bonuses and penalties):
+ *    - Risk penalty: High/Very High risk players lose points
+ *    - Position bonus: Priority positions get extra points
+ *    - College/HS bonus: If you prefer one over the other
+ *    - Personality bonuses: High work ethic, intelligence, etc. add points
+ *    - Personality penalties: Low work ethic, injury prone, etc. subtract points
+ *    - Batter/Pitcher type bonuses: Flyball hitters, groundball pitchers, etc.
+ * 
+ * EXAMPLE for a 70 POT / 35 OVR batter with default weights:
+ *   Base: (70 POT → 83.3 normalized × 40%) + (35 OVR → 25 normalized × 20%) = 38.3
+ *   Skills: 40% of score from weighted average of Power, Contact, Eye, etc.
+ *   Adjustments: +5 for High Work Ethic, -10 for High Risk, etc.
+ */
 
 export function calculateCompositeScore(player: Player, philosophy: DraftPhilosophy): { score: number; breakdown: ScoreBreakdown } {
   const breakdown: ScoreBreakdown = {
     potentialContribution: 0,
     overallContribution: 0,
+    skillsContribution: 0,
     riskPenalty: 0,
-    signabilityBonus: 0,
     positionBonus: 0,
+    personalityAdjustment: 0,
+    otherBonuses: 0,
     ratingContributions: {},
     total: 0,
   };
 
   const isPitcher = PITCHER_POSITIONS.includes(player.position as any);
   const isStarter = player.position === 'SP';
-  const normalize = (val: number | null) => val ? ((val - 20) / 60) * 100 : 0;
 
-  // Potential contribution
-  breakdown.potentialContribution = (normalize(player.potential) * philosophy.potentialWeight) / 100;
+  // Calculate what percentage of score comes from skills
+  const skillsWeight = Math.max(0, 100 - philosophy.potentialWeight - philosophy.overallWeight);
 
-  // Overall contribution
-  breakdown.overallContribution = (normalize(player.overall) * philosophy.overallWeight) / 100;
+  // 1. BASE SCORE: Potential contribution
+  const potNormalized = normalize(player.potential);
+  breakdown.potentialContribution = (potNormalized * philosophy.potentialWeight) / 100;
+
+  // 2. BASE SCORE: Overall contribution  
+  const ovrNormalized = normalize(player.overall);
+  breakdown.overallContribution = (ovrNormalized * philosophy.overallWeight) / 100;
+
+  // 3. SKILLS SCORE: Calculate weighted average of individual ratings
+  let skillsScore = 0;
+  let totalSkillWeight = 0;
+
+  if (isPitcher && player.pitchingRatings && player.pitchArsenal) {
+    const p = player.pitchingRatings;
+    const a = player.pitchArsenal;
+    const w = isStarter ? philosophy.spWeights : philosophy.rpWeights;
+
+    // Stuff
+    if (p.stuffPot !== null) {
+      const contrib = normalize(p.stuffPot) * w.stuff;
+      breakdown.ratingContributions['Stuff'] = contrib / 100;
+      skillsScore += contrib;
+      totalSkillWeight += w.stuff;
+    }
+
+    // Movement vs PBABIP+HR toggle
+    const useMovement = isStarter ? philosophy.useMovementSP : philosophy.useMovementRP;
+    
+    if (useMovement) {
+      if (p.movementPot !== null) {
+        const contrib = normalize(p.movementPot) * w.movement;
+        breakdown.ratingContributions['Movement'] = contrib / 100;
+        skillsScore += contrib;
+        totalSkillWeight += w.movement;
+      }
+    } else {
+      if (p.pBabipPot !== null) {
+        const contrib = normalize(p.pBabipPot) * w.pBabip;
+        breakdown.ratingContributions['PBABIP'] = contrib / 100;
+        skillsScore += contrib;
+        totalSkillWeight += w.pBabip;
+      }
+      if (p.hrRatePot !== null) {
+        const contrib = normalize(p.hrRatePot) * w.hrRate;
+        breakdown.ratingContributions['HR Rate'] = contrib / 100;
+        skillsScore += contrib;
+        totalSkillWeight += w.hrRate;
+      }
+    }
+
+    // Control
+    if (p.controlPot !== null) {
+      const contrib = normalize(p.controlPot) * w.control;
+      breakdown.ratingContributions['Control'] = contrib / 100;
+      skillsScore += contrib;
+      totalSkillWeight += w.control;
+    }
+
+    // Stamina (SP only)
+    if (isStarter && p.stamina !== null) {
+      const staminaWeight = philosophy.spWeights.stamina;
+      const contrib = normalize(p.stamina) * staminaWeight;
+      breakdown.ratingContributions['Stamina'] = contrib / 100;
+      skillsScore += contrib;
+      totalSkillWeight += staminaWeight;
+    }
+
+    // Arsenal quality (count of 55+ potential pitches, max 3 for full credit)
+    const pitchPots = [a.fastballPot, a.changeupPot, a.curveballPot, a.sliderPot, a.sinkerPot, 
+                       a.splitterPot, a.cutterPot, a.circleChangePot, a.forkballPot]
+      .filter(pt => pt !== null && pt >= 55).length;
+    const arsenalNormalized = Math.min(pitchPots / 3, 1) * 100;
+    const arsenalContrib = arsenalNormalized * w.arsenal;
+    breakdown.ratingContributions['Arsenal'] = arsenalContrib / 100;
+    skillsScore += arsenalContrib;
+    totalSkillWeight += w.arsenal;
+
+  } else if (player.battingRatings && player.speedRatings && player.defenseRatings) {
+    const b = player.battingRatings;
+    const s = player.speedRatings;
+    const d = player.defenseRatings;
+    const w = philosophy.batterWeights;
+
+    // Power
+    if (b.powerPot !== null) {
+      const contrib = normalize(b.powerPot) * w.power;
+      breakdown.ratingContributions['Power'] = contrib / 100;
+      skillsScore += contrib;
+      totalSkillWeight += w.power;
+    }
+
+    // Contact vs BABIP+AvoidK toggle
+    if (philosophy.useBabipKs) {
+      if (b.babipPot !== null) {
+        const contrib = normalize(b.babipPot) * w.babip;
+        breakdown.ratingContributions['BABIP'] = contrib / 100;
+        skillsScore += contrib;
+        totalSkillWeight += w.babip;
+      }
+      if (b.avoidKPot !== null) {
+        const contrib = normalize(b.avoidKPot) * w.avoidK;
+        breakdown.ratingContributions['Avoid K'] = contrib / 100;
+        skillsScore += contrib;
+        totalSkillWeight += w.avoidK;
+      }
+    } else {
+      if (b.contactPot !== null) {
+        const contrib = normalize(b.contactPot) * w.contact;
+        breakdown.ratingContributions['Contact'] = contrib / 100;
+        skillsScore += contrib;
+        totalSkillWeight += w.contact;
+      }
+    }
+
+    // Eye
+    if (b.eyePot !== null) {
+      const contrib = normalize(b.eyePot) * w.eye;
+      breakdown.ratingContributions['Eye'] = contrib / 100;
+      skillsScore += contrib;
+      totalSkillWeight += w.eye;
+    }
+
+    // Gap
+    if (b.gapPot !== null) {
+      const contrib = normalize(b.gapPot) * w.gap;
+      breakdown.ratingContributions['Gap'] = contrib / 100;
+      skillsScore += contrib;
+      totalSkillWeight += w.gap;
+    }
+
+    // Speed
+    if (s.speed !== null) {
+      const contrib = normalize(s.speed) * w.speed;
+      breakdown.ratingContributions['Speed'] = contrib / 100;
+      skillsScore += contrib;
+      totalSkillWeight += w.speed;
+    }
+
+    // Defense (best of IF range, OF range, or catcher ability based on position)
+    let defenseRating = 0;
+    if (player.position === 'C') {
+      defenseRating = Math.max(d.catcherAbility || 0, d.catcherFraming || 0);
+    } else if (['LF', 'CF', 'RF'].includes(player.position)) {
+      defenseRating = d.outfieldRange || 0;
+    } else {
+      defenseRating = d.infieldRange || 0;
+    }
+    if (defenseRating > 0) {
+      const contrib = normalize(defenseRating) * w.defense;
+      breakdown.ratingContributions['Defense'] = contrib / 100;
+      skillsScore += contrib;
+      totalSkillWeight += w.defense;
+    }
+  }
+
+  // Normalize skills score to be out of 100, then apply skills weight
+  if (totalSkillWeight > 0) {
+    const normalizedSkillsScore = (skillsScore / totalSkillWeight) * 100;
+    breakdown.skillsContribution = (normalizedSkillsScore * skillsWeight) / 100;
+  }
+
+  // 4. ADJUSTMENTS
 
   // Risk penalty
-  let riskMult = 1;
-  if (player.risk === 'Very High') riskMult = 0.3;
-  else if (player.risk === 'High') riskMult = 0.5;
-  else if (player.risk === 'Medium') riskMult = 0.75;
-  breakdown.riskPenalty = -((1 - riskMult) * philosophy.riskWeight);
-
-  // Signability bonus
-  let signMult = 0.5;
-  if (player.signability === 'Very Easy') signMult = 1;
-  else if (player.signability === 'Easy') signMult = 0.75;
-  else if (player.signability === 'Hard') signMult = 0.25;
-  else if (player.signability === 'Extremely Hard') signMult = 0;
-  breakdown.signabilityBonus = signMult * philosophy.signabilityWeight;
+  let riskPenalty = 0;
+  if (player.risk === 'Very High') riskPenalty = philosophy.riskPenalties.veryHigh;
+  else if (player.risk === 'High') riskPenalty = philosophy.riskPenalties.high;
+  else if (player.risk === 'Medium') riskPenalty = philosophy.riskPenalties.medium;
+  breakdown.riskPenalty = -riskPenalty;
 
   // Position bonus
   if (philosophy.priorityPositions.includes(player.position)) {
     breakdown.positionBonus = philosophy.positionBonus;
   }
 
-  // Rating contributions
-  let ratingScore = 0;
-
   // College/HS preference bonus
   const isCollege = player.highSchoolClass?.includes('CO');
   const isHS = player.highSchoolClass?.includes('HS');
   if (philosophy.collegeVsHS === 'college' && isCollege) {
-    ratingScore += philosophy.collegeHSBonus;
+    breakdown.otherBonuses += philosophy.collegeHSBonus;
     breakdown.ratingContributions['College Bonus'] = philosophy.collegeHSBonus;
   } else if (philosophy.collegeVsHS === 'hs' && isHS) {
-    ratingScore += philosophy.collegeHSBonus;
+    breakdown.otherBonuses += philosophy.collegeHSBonus;
     breakdown.ratingContributions['HS Bonus'] = philosophy.collegeHSBonus;
   }
 
   // Batter batted ball type bonus
   if (!isPitcher && player.battingRatings?.battedBallType) {
     if (philosophy.preferredBatterTypes.includes(player.battingRatings.battedBallType)) {
-      ratingScore += philosophy.batterTypeBonus;
+      breakdown.otherBonuses += philosophy.batterTypeBonus;
       breakdown.ratingContributions['Batter Type Bonus'] = philosophy.batterTypeBonus;
     }
   }
@@ -443,117 +630,86 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
   // Pitcher ground/fly type bonus  
   if (isPitcher && player.pitchingRatings?.groundFlyRatio) {
     if (philosophy.preferredPitcherTypes.includes(player.pitchingRatings.groundFlyRatio)) {
-      ratingScore += philosophy.pitcherTypeBonus;
+      breakdown.otherBonuses += philosophy.pitcherTypeBonus;
       breakdown.ratingContributions['Pitcher Type Bonus'] = philosophy.pitcherTypeBonus;
     }
   }
-  
-  if (isPitcher && player.pitchingRatings && player.pitchArsenal) {
-    const p = player.pitchingRatings;
-    const a = player.pitchArsenal;
-    const w = isStarter ? philosophy.spWeights : philosophy.rpWeights;
-    
-    if (p.stuffPot) {
-      const c = (normalize(p.stuffPot) * w.stuff) / 100;
-      breakdown.ratingContributions['Stuff'] = c;
-      ratingScore += c;
-    }
-    
-    // Movement vs PBABIP+HR toggle
-    const useMovement = isStarter ? philosophy.useMovementSP : philosophy.useMovementRP;
-    
-    if (useMovement) {
-      if (p.movementPot) {
-        const c = (normalize(p.movementPot) * w.movement) / 100;
-        breakdown.ratingContributions['Movement'] = c;
-        ratingScore += c;
-      }
-    } else {
-      if (p.pBabipPot) {
-        const c = (normalize(p.pBabipPot) * w.pBabip) / 100;
-        breakdown.ratingContributions['PBABIP'] = c;
-        ratingScore += c;
-      }
-      if (p.hrRatePot) {
-        const c = (normalize(p.hrRatePot) * w.hrRate) / 100;
-        breakdown.ratingContributions['HR Rate'] = c;
-        ratingScore += c;
-      }
-    }
-    
-    if (p.controlPot) {
-      const c = (normalize(p.controlPot) * w.control) / 100;
-      breakdown.ratingContributions['Control'] = c;
-      ratingScore += c;
-    }
-    if (isStarter && p.stamina) {
-      const staminaWeight = philosophy.spWeights.stamina;
-      const c = (normalize(p.stamina) * staminaWeight) / 100;
-      breakdown.ratingContributions['Stamina'] = c;
-      ratingScore += c;
-    }
-    
-    // Arsenal quality
-    const pitchPots = [a.fastballPot, a.changeupPot, a.curveballPot, a.sliderPot, a.sinkerPot, a.splitterPot, a.cutterPot, a.circleChangePot]
-      .filter(pt => pt !== null && pt >= 55).length;
-    const arsenalScore = Math.min(pitchPots / 3, 1) * 100;
-    const arsenalC = (arsenalScore * w.arsenal) / 100;
-    breakdown.ratingContributions['Arsenal'] = arsenalC;
-    ratingScore += arsenalC;
-  } else if (player.battingRatings && player.speedRatings && player.defenseRatings) {
-    const b = player.battingRatings;
-    const s = player.speedRatings;
-    const d = player.defenseRatings;
-    const w = philosophy.batterWeights;
-    
-    if (b.powerPot) {
-      const c = (normalize(b.powerPot) * w.power) / 100;
-      breakdown.ratingContributions['Power'] = c;
-      ratingScore += c;
-    }
-    
-    if (philosophy.useBabipKs) {
-      if (b.babipPot) {
-        const c = (normalize(b.babipPot) * w.babip) / 100;
-        breakdown.ratingContributions['BABIP'] = c;
-        ratingScore += c;
-      }
-      if (b.avoidKPot) {
-        const c = (normalize(b.avoidKPot) * w.avoidK) / 100;
-        breakdown.ratingContributions['Avoid K'] = c;
-        ratingScore += c;
-      }
-    } else {
-      if (b.contactPot) {
-        const c = (normalize(b.contactPot) * w.contact) / 100;
-        breakdown.ratingContributions['Contact'] = c;
-        ratingScore += c;
-      }
-    }
-    
-    if (b.eyePot) {
-      const c = (normalize(b.eyePot) * w.eye) / 100;
-      breakdown.ratingContributions['Eye'] = c;
-      ratingScore += c;
-    }
-    if (b.gapPot) {
-      const c = (normalize(b.gapPot) * w.gap) / 100;
-      breakdown.ratingContributions['Gap'] = c;
-      ratingScore += c;
-    }
-    
-    const speedScore = normalize(s.speed);
-    const defScore = Math.max(normalize(d.infieldRange), normalize(d.outfieldRange), normalize(d.catcherAbility));
-    const speedC = (speedScore * w.speed) / 100;
-    const defC = (defScore * w.defense) / 100;
-    breakdown.ratingContributions['Speed'] = speedC;
-    breakdown.ratingContributions['Defense'] = defC;
-    ratingScore += speedC + defC;
-  }
 
-  breakdown.total = breakdown.potentialContribution + breakdown.overallContribution + breakdown.riskPenalty +
-    breakdown.signabilityBonus + breakdown.positionBonus + ratingScore;
-  breakdown.total = Math.max(0, breakdown.total); // Allow scores to exceed 100
+  // Personality adjustments
+  let personalityAdj = 0;
+  
+  // Positive traits
+  if (player.workEthic === 'H') {
+    personalityAdj += philosophy.personalityBonuses.highWorkEthic;
+    if (philosophy.personalityBonuses.highWorkEthic !== 0) {
+      breakdown.ratingContributions['High Work Ethic'] = philosophy.personalityBonuses.highWorkEthic;
+    }
+  }
+  if (player.intelligence === 'H') {
+    personalityAdj += philosophy.personalityBonuses.highIntelligence;
+    if (philosophy.personalityBonuses.highIntelligence !== 0) {
+      breakdown.ratingContributions['High Intelligence'] = philosophy.personalityBonuses.highIntelligence;
+    }
+  }
+  if (player.leadership === 'H') {
+    personalityAdj += philosophy.personalityBonuses.leadership;
+    if (philosophy.personalityBonuses.leadership !== 0) {
+      breakdown.ratingContributions['Leadership'] = philosophy.personalityBonuses.leadership;
+    }
+  }
+  if (player.adaptability === 'H') {
+    personalityAdj += philosophy.personalityBonuses.highAdaptability;
+    if (philosophy.personalityBonuses.highAdaptability !== 0) {
+      breakdown.ratingContributions['High Adaptability'] = philosophy.personalityBonuses.highAdaptability;
+    }
+  }
+  if (player.injuryProne === 'Durable') {
+    personalityAdj += philosophy.personalityBonuses.durable;
+    if (philosophy.personalityBonuses.durable !== 0) {
+      breakdown.ratingContributions['Durable'] = philosophy.personalityBonuses.durable;
+    }
+  }
+  
+  // Negative traits (these are penalties, so subtract)
+  if (player.workEthic === 'L') {
+    personalityAdj -= philosophy.personalityPenalties.lowWorkEthic;
+    if (philosophy.personalityPenalties.lowWorkEthic !== 0) {
+      breakdown.ratingContributions['Low Work Ethic'] = -philosophy.personalityPenalties.lowWorkEthic;
+    }
+  }
+  if (player.intelligence === 'L') {
+    personalityAdj -= philosophy.personalityPenalties.lowIntelligence;
+    if (philosophy.personalityPenalties.lowIntelligence !== 0) {
+      breakdown.ratingContributions['Low Intelligence'] = -philosophy.personalityPenalties.lowIntelligence;
+    }
+  }
+  if (player.adaptability === 'L') {
+    personalityAdj -= philosophy.personalityPenalties.lowAdaptability;
+    if (philosophy.personalityPenalties.lowAdaptability !== 0) {
+      breakdown.ratingContributions['Low Adaptability'] = -philosophy.personalityPenalties.lowAdaptability;
+    }
+  }
+  if (player.injuryProne === 'Fragile') {
+    personalityAdj -= philosophy.personalityPenalties.injuryProne;
+    if (philosophy.personalityPenalties.injuryProne !== 0) {
+      breakdown.ratingContributions['Injury Prone'] = -philosophy.personalityPenalties.injuryProne;
+    }
+  }
+  
+  breakdown.personalityAdjustment = personalityAdj;
+
+  // Calculate total
+  breakdown.total = 
+    breakdown.potentialContribution + 
+    breakdown.overallContribution + 
+    breakdown.skillsContribution +
+    breakdown.riskPenalty + 
+    breakdown.positionBonus + 
+    breakdown.personalityAdjustment +
+    breakdown.otherBonuses;
+  
+  // Floor at 0
+  breakdown.total = Math.max(0, breakdown.total);
 
   return { score: breakdown.total, breakdown };
 }
@@ -571,13 +727,16 @@ export function assignTier(score: number, thresholds: DraftPhilosophy['tierThres
 export function calculateSleeperScore(player: Player, philosophy: DraftPhilosophy): number {
   const { score } = calculateCompositeScore(player, philosophy);
   const avgOvrPot = (player.overall + player.potential) / 2;
-  const normalizedAvg = ((avgOvrPot - 20) / 60) * 100;
+  const normalizedAvg = normalize(avgOvrPot);
   
+  // Sleeper score = how much better the composite score is vs just OVR/POT average
   let sleeperScore = score - normalizedAvg;
   
+  // Bonus for lower risk
   if (player.risk === 'Low') sleeperScore += 2;
   else if (player.risk === 'Medium') sleeperScore += 1;
   
+  // Bonus for premium positions
   if (PREMIUM_POSITIONS.includes(player.position as any)) sleeperScore += 2;
   
   return sleeperScore;
