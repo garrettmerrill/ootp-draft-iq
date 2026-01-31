@@ -163,7 +163,15 @@ export default function PhilosophyPage() {
       const res = await fetch('/api/philosophy/recalculate', { method: 'POST' });
       const data = await res.json();
       
-      // Show debug info
+      // Check if there was an error
+      if (!res.ok || data.error) {
+        const errorDetails = data.details ? `\n\nDetails: ${data.details}` : '';
+        alert(`Failed to recalculate: ${data.error || 'Unknown error'}${errorDetails}`);
+        console.error('Recalculate error:', data);
+        return;
+      }
+      
+      // Show debug info on success
       const debugMsg = data.debug 
         ? `\n\nDEBUG INFO:\nSample: ${data.debug.samplePlayerName}\nServer calculated score: ${data.debug.samplePlayerScore?.toFixed(2)}\nPhilosophy: ${data.debug.philosophyName}\nPOT/OVR/Skills weights: ${data.debug.philosophyPotWeight}/${data.debug.philosophyOvrWeight}/${data.debug.philosophySkillsWeight}`
         : '';
@@ -173,7 +181,8 @@ export default function PhilosophyPage() {
       // Refresh players to see updated scores
       await fetchPlayers();
     } catch (error) {
-      alert('Failed to recalculate players');
+      console.error('Recalculate network error:', error);
+      alert(`Failed to recalculate players: ${error instanceof Error ? error.message : 'Network error'}`);
     } finally {
       setRecalculating(false);
     }
