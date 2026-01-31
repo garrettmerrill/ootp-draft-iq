@@ -508,12 +508,12 @@ export interface DraftPhilosophy {
 
 export const DEFAULT_PHILOSOPHY: DraftPhilosophy = {
   name: 'Default',
-  description: 'Balanced approach valuing potential and tools equally',
+  description: 'Balanced approach emphasizing individual tools with development factor',
   isActive: true,
   isPreset: false,
   
-  potentialWeight: 40,
-  overallWeight: 20,
+  potentialWeight: 25,
+  overallWeight: 10,
   
   riskPenalties: {
     veryHigh: 15,
@@ -593,7 +593,7 @@ export const PHILOSOPHY_PRESETS: Record<string, DraftPhilosophy> = {
   balanced: {
     ...DEFAULT_PHILOSOPHY,
     name: 'Balanced',
-    description: 'Even weight between ceiling and floor',
+    description: 'Balanced approach with development factor',
     isActive: false,
     isPreset: true,
   },
@@ -603,8 +603,8 @@ export const PHILOSOPHY_PRESETS: Record<string, DraftPhilosophy> = {
     description: 'Chase upside, accept risk',
     isActive: false,
     isPreset: true,
-    potentialWeight: 50,
-    overallWeight: 10,
+    potentialWeight: 35,
+    overallWeight: 5,
     riskPenalties: { veryHigh: 8, high: 5, medium: 2 },
     collegeVsHS: 'hs',
     collegeHSBonus: 5,
@@ -623,8 +623,8 @@ export const PHILOSOPHY_PRESETS: Record<string, DraftPhilosophy> = {
     description: 'Polished players, minimize bust risk',
     isActive: false,
     isPreset: true,
-    potentialWeight: 30,
-    overallWeight: 35,
+    potentialWeight: 20,
+    overallWeight: 25,
     riskPenalties: { veryHigh: 20, high: 15, medium: 8 },
     personalityBonuses: {
       highWorkEthic: 8, highIntelligence: 5,
@@ -639,8 +639,8 @@ export const PHILOSOPHY_PRESETS: Record<string, DraftPhilosophy> = {
     description: 'Raw athleticism over polish',
     isActive: false,
     isPreset: true,
-    potentialWeight: 35,
-    overallWeight: 15,
+    potentialWeight: 20,
+    overallWeight: 5,
     batterWeights: {
       power: 25, contact: 15, babip: 10, avoidK: 10,
       eye: 10, gap: 10, speed: 25, defense: 20,

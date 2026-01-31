@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { DraftPhilosophy, DEFAULT_PHILOSOPHY, POSITIONS } from '@/types';
+import { useState, useEffect, useMemo } from 'react';
+import { DraftPhilosophy, DEFAULT_PHILOSOPHY, POSITIONS, Player } from '@/types';
+import { calculateCompositeScore, assignTier } from '@/lib/playerAnalysis';
 
 const BATTER_TYPES = ['Flyball', 'Line Drive', 'Normal', 'Groundball'];
 const PITCHER_TYPES = ['EX GB', 'GB', 'NEU', 'FB', 'EX FB'];
@@ -11,7 +12,6 @@ function migratePhilosophy(old: any): DraftPhilosophy {
   return {
     ...DEFAULT_PHILOSOPHY,
     ...old,
-    // Ensure nested objects are properly merged with defaults
     riskPenalties: {
       ...DEFAULT_PHILOSOPHY.riskPenalties,
       ...(old.riskPenalties || {}),
@@ -40,7 +40,6 @@ function migratePhilosophy(old: any): DraftPhilosophy {
       ...DEFAULT_PHILOSOPHY.tierThresholds,
       ...(old.tierThresholds || {}),
     },
-    // Ensure arrays exist
     preferredBatterTypes: old.preferredBatterTypes || [],
     preferredPitcherTypes: old.preferredPitcherTypes || [],
     priorityPositions: old.priorityPositions || [],
@@ -56,9 +55,15 @@ export default function PhilosophyPage() {
   const [saving, setSaving] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
   const [loading, setLoading] = useState(true);
+  
+  // Score Tester State
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string>('');
+  const [playerSearchQuery, setPlayerSearchQuery] = useState('');
 
   useEffect(() => {
     fetchPhilosophies();
+    fetchPlayers();
   }, []);
 
   async function fetchPhilosophies() {
@@ -70,13 +75,24 @@ export default function PhilosophyPage() {
       setActivePhilosophy(data.activePhilosophy);
       
       if (data.activePhilosophy) {
-        // Migrate old philosophy data to ensure new fields exist
         setEditing(migratePhilosophy(data.activePhilosophy.settings));
       }
     } catch (error) {
       console.error('Error fetching philosophies:', error);
     } finally {
       setLoading(false);
+    }
+  }
+  
+  async function fetchPlayers() {
+    try {
+      const res = await fetch('/api/players');
+      const data = await res.json();
+      if (data.players) {
+        setPlayers(data.players);
+      }
+    } catch (error) {
+      console.error('Error fetching players:', error);
     }
   }
 
@@ -87,21 +103,17 @@ export default function PhilosophyPage() {
   }
 
   function isValid(): boolean {
-    // Check base weights (POT + OVR should be between 40-80, leaving room for skills)
     const baseTotal = editing.potentialWeight + editing.overallWeight;
-    if (baseTotal < 20 || baseTotal > 90) return false;
+    if (baseTotal < 10 || baseTotal > 90) return false;
     
-    // Check batter weights
     const batterExclude = editing.useBabipKs ? ['contact'] : ['babip', 'avoidK'];
     const batterTotal = calculateTotal(editing.batterWeights, batterExclude);
     if (Math.abs(batterTotal - 100) > 0.01) return false;
     
-    // Check SP weights
     const spExclude = editing.useMovementSP ? ['pBabip', 'hrRate'] : ['movement'];
     const spTotal = calculateTotal(editing.spWeights, spExclude);
     if (Math.abs(spTotal - 100) > 0.01) return false;
     
-    // Check RP weights
     const rpExclude = editing.useMovementRP ? ['pBabip', 'hrRate'] : ['movement'];
     const rpTotal = calculateTotal(editing.rpWeights, rpExclude);
     if (Math.abs(rpTotal - 100) > 0.01) return false;
@@ -181,6 +193,30 @@ export default function PhilosophyPage() {
       alert('Failed to delete philosophy');
     }
   }
+  
+  // Score Tester - calculate score for selected player with current philosophy settings
+  const selectedPlayer = useMemo(() => {
+    return players.find(p => p.id === selectedPlayerId) || null;
+  }, [players, selectedPlayerId]);
+  
+  const testScore = useMemo(() => {
+    if (!selectedPlayer) return null;
+    return calculateCompositeScore(selectedPlayer, editing);
+  }, [selectedPlayer, editing]);
+  
+  const testTier = useMemo(() => {
+    if (!testScore) return null;
+    return assignTier(testScore.score, editing.tierThresholds);
+  }, [testScore, editing.tierThresholds]);
+  
+  const filteredPlayers = useMemo(() => {
+    if (!playerSearchQuery) return players.slice(0, 20);
+    const query = playerSearchQuery.toLowerCase();
+    return players.filter(p => 
+      p.name.toLowerCase().includes(query) ||
+      p.position.toLowerCase().includes(query)
+    ).slice(0, 20);
+  }, [players, playerSearchQuery]);
 
   if (loading) {
     return <div className="p-8">Loading...</div>;
@@ -229,40 +265,195 @@ export default function PhilosophyPage() {
           </p>
           <div className="bg-white dark:bg-gray-900 rounded-lg p-4 border border-gray-300 dark:border-gray-700">
             <div className="font-mono text-xs space-y-2">
-              <div><span className="font-semibold">1. BASE SCORE</span> (POT + OVR weights)</div>
+              <div><span className="font-semibold">1. BASE SCORE</span> ({baseTotal}% of total)</div>
               <div className="ml-4 text-blue-600">POT rating × {editing.potentialWeight}% + OVR rating × {editing.overallWeight}%</div>
-              <div className="mt-2"><span className="font-semibold">2. SKILLS SCORE</span> (remaining {skillsWeight}%)</div>
-              <div className="ml-4 text-purple-600">Weighted average of individual ratings (Power, Contact, Stuff, etc.)</div>
+              <div className="mt-2"><span className="font-semibold">2. SKILLS SCORE</span> ({skillsWeight}% of total)</div>
+              <div className="ml-4 text-purple-600">Weighted average of individual ratings with Development Factor</div>
+              <div className="ml-4 text-purple-500 text-xs">effectiveRating = potential × (0.7 + 0.3 × current/potential)</div>
               <div className="mt-2"><span className="font-semibold">3. ADJUSTMENTS</span> (flat bonuses/penalties)</div>
               <div className="ml-4 text-green-600">+ Position bonus, + Personality bonuses, + Preference bonuses</div>
               <div className="ml-4 text-red-600">− Risk penalty, − Personality penalties</div>
             </div>
           </div>
-          <div className="grid md:grid-cols-2 gap-4 mt-4">
-            <div className="bg-white dark:bg-gray-900 rounded-lg p-4 border border-gray-300 dark:border-gray-700">
-              <div className="font-semibold text-dugout-900 dark:text-white mb-2">Example: 70 POT / 35 OVR SS</div>
-              <div className="text-xs space-y-1">
-                <div>POT: 70 → 83 normalized × 40% = <span className="text-blue-600">33 pts</span></div>
-                <div>OVR: 35 → 25 normalized × 20% = <span className="text-blue-600">5 pts</span></div>
-                <div>Skills: weighted avg × 40% ≈ <span className="text-purple-600">30 pts</span></div>
-                <div>+ High Work Ethic = <span className="text-green-600">+5 pts</span></div>
-                <div>− High Risk = <span className="text-red-600">−10 pts</span></div>
-                <div className="font-semibold mt-1">Total: ~63 pts → "Very Good"</div>
+          
+          {/* Development Factor Explanation */}
+          <div className="bg-purple-50 dark:bg-purple-950 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
+            <div className="font-semibold text-purple-800 dark:text-purple-200 mb-2">Development Factor</div>
+            <p className="text-xs text-purple-700 dark:text-purple-300 mb-2">
+              Rewards players who are closer to their ceiling. A player with 70 POT who is already at 60 current 
+              will score higher than a player with 70 POT who is still at 35 current.
+            </p>
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div className="bg-white dark:bg-gray-900 p-2 rounded">
+                <div className="font-semibold">Raw Talent</div>
+                <div>70 POT / 35 cur</div>
+                <div className="text-purple-600">→ 59.5 effective</div>
+              </div>
+              <div className="bg-white dark:bg-gray-900 p-2 rounded">
+                <div className="font-semibold">Developing</div>
+                <div>70 POT / 50 cur</div>
+                <div className="text-purple-600">→ 64.0 effective</div>
+              </div>
+              <div className="bg-white dark:bg-gray-900 p-2 rounded">
+                <div className="font-semibold">Polished</div>
+                <div>70 POT / 60 cur</div>
+                <div className="text-purple-600">→ 67.2 effective</div>
               </div>
             </div>
-            <div className="bg-white dark:bg-gray-900 rounded-lg p-4 border border-gray-300 dark:border-gray-700">
-              <div className="font-semibold text-dugout-900 dark:text-white mb-2">Rating Scale</div>
-              <div className="text-xs space-y-1">
-                <div>OOTP uses 20-80 scale</div>
-                <div>We normalize to 0-100:</div>
-                <div className="ml-2">20 rating → 0 pts</div>
-                <div className="ml-2">50 rating → 50 pts</div>
-                <div className="ml-2">80 rating → 100 pts</div>
+          </div>
+          
+          {/* Speed & Defense Explanation */}
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="bg-green-50 dark:bg-green-950 rounded-lg p-4 border border-green-200 dark:border-green-800">
+              <div className="font-semibold text-green-800 dark:text-green-200 mb-2">Speed Calculation</div>
+              <div className="text-xs space-y-1 text-green-700 dark:text-green-300">
+                <div>Speed: 55%</div>
+                <div>Baserunning: 20%</div>
+                <div>Stealing Ability: 15%</div>
+                <div>Stealing Aggression: 10%</div>
+              </div>
+            </div>
+            <div className="bg-orange-50 dark:bg-orange-950 rounded-lg p-4 border border-orange-200 dark:border-orange-800">
+              <div className="font-semibold text-orange-800 dark:text-orange-200 mb-2">Defense (Position-Specific)</div>
+              <div className="text-xs space-y-1 text-orange-700 dark:text-orange-300">
+                <div><span className="font-medium">C:</span> Block 40%, Frame 35%, Arm 25%</div>
+                <div><span className="font-medium">SS:</span> Range 40%, Error 25%, DP 20%, Arm 15%</div>
+                <div><span className="font-medium">CF:</span> Range 75%, Error 15%, Arm 10%</div>
+                <div className="text-orange-500 text-xs italic">Each position has unique weights</div>
               </div>
             </div>
           </div>
         </div>
       </div>
+      
+      {/* Score Tester */}
+      {players.length > 0 && (
+        <div className="bg-gradient-to-br from-green-50 to-white dark:from-green-950 dark:to-gray-800 rounded-lg shadow-lg p-6 border-2 border-green-200 dark:border-green-800">
+          <h2 className="text-xl font-bold text-dugout-900 dark:text-white mb-3 flex items-center gap-2">
+            <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+            Test Your Philosophy
+          </h2>
+          <p className="text-sm text-dugout-600 dark:text-dugout-400 mb-4">
+            Select a player to see how their score is calculated with your current philosophy settings. 
+            Changes to sliders above will update this calculation in real-time.
+          </p>
+          
+          <div className="mb-4">
+            <input
+              type="text"
+              placeholder="Search for a player..."
+              value={playerSearchQuery}
+              onChange={(e) => setPlayerSearchQuery(e.target.value)}
+              className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 mb-2"
+            />
+            <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+              {filteredPlayers.map(player => (
+                <button
+                  key={player.id}
+                  onClick={() => setSelectedPlayerId(player.id)}
+                  className={`px-3 py-1 rounded-full text-sm transition-colors ${
+                    selectedPlayerId === player.id
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  {player.name} ({player.position})
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          {selectedPlayer && testScore && (
+            <div className="bg-white dark:bg-gray-900 rounded-lg p-4 border border-gray-300 dark:border-gray-700">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <div className="text-lg font-bold text-dugout-900 dark:text-white">{selectedPlayer.name}</div>
+                  <div className="text-sm text-dugout-500">
+                    {selectedPlayer.position} • {selectedPlayer.overall}/{selectedPlayer.potential} OVR/POT • Age {selectedPlayer.age}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-3xl font-bold text-green-600">{testScore.score.toFixed(1)}</div>
+                  <div className={`text-sm font-semibold ${
+                    testTier === 'Elite' ? 'text-blue-600' :
+                    testTier === 'Very Good' ? 'text-green-600' :
+                    testTier === 'Good' ? 'text-yellow-600' :
+                    testTier === 'Average' ? 'text-orange-600' : 'text-red-600'
+                  }`}>{testTier}</div>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-dugout-600 dark:text-dugout-400">Potential Contribution</span>
+                  <span className="font-mono text-blue-600">+{testScore.breakdown.potentialContribution.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-dugout-600 dark:text-dugout-400">Overall Contribution</span>
+                  <span className="font-mono text-blue-600">+{testScore.breakdown.overallContribution.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-dugout-600 dark:text-dugout-400">Skills Contribution</span>
+                  <span className="font-mono text-purple-600">+{testScore.breakdown.skillsContribution.toFixed(2)}</span>
+                </div>
+                
+                {/* Skills Breakdown */}
+                {Object.keys(testScore.breakdown.ratingContributions).length > 0 && (
+                  <div className="pl-4 border-l-2 border-purple-300 dark:border-purple-700 space-y-1">
+                    {Object.entries(testScore.breakdown.ratingContributions)
+                      .filter(([key]) => !['College Bonus', 'HS Bonus', 'Batter Type Bonus', 'Pitcher Type Bonus', 
+                        'High Work Ethic', 'High Intelligence', 'Leadership', 'High Adaptability', 'Durable',
+                        'Low Work Ethic', 'Low Intelligence', 'Low Adaptability', 'Injury Prone'].includes(key))
+                      .map(([key, value]) => (
+                        <div key={key} className="flex items-center justify-between text-xs">
+                          <span className="text-dugout-500">{key}</span>
+                          <span className="font-mono text-purple-500">{value >= 0 ? '+' : ''}{value.toFixed(2)}</span>
+                        </div>
+                      ))}
+                  </div>
+                )}
+                
+                {testScore.breakdown.riskPenalty !== 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-dugout-600 dark:text-dugout-400">Risk Penalty</span>
+                    <span className="font-mono text-red-600">{testScore.breakdown.riskPenalty.toFixed(2)}</span>
+                  </div>
+                )}
+                
+                {testScore.breakdown.positionBonus > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-dugout-600 dark:text-dugout-400">Position Bonus</span>
+                    <span className="font-mono text-green-600">+{testScore.breakdown.positionBonus.toFixed(2)}</span>
+                  </div>
+                )}
+                
+                {testScore.breakdown.personalityAdjustment !== 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-dugout-600 dark:text-dugout-400">Personality Adjustment</span>
+                    <span className={`font-mono ${testScore.breakdown.personalityAdjustment >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      {testScore.breakdown.personalityAdjustment >= 0 ? '+' : ''}{testScore.breakdown.personalityAdjustment.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                
+                {testScore.breakdown.otherBonuses > 0 && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-dugout-600 dark:text-dugout-400">Other Bonuses</span>
+                    <span className="font-mono text-green-600">+{testScore.breakdown.otherBonuses.toFixed(2)}</span>
+                  </div>
+                )}
+                
+                <div className="border-t border-gray-300 dark:border-gray-700 pt-2 flex items-center justify-between font-semibold">
+                  <span>Total Score</span>
+                  <span className="text-green-600">{testScore.breakdown.total.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Philosophy Selector */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
@@ -334,7 +525,7 @@ export default function PhilosophyPage() {
 
         <h3 className="text-lg font-semibold mb-2">Base Weights</h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          POT + OVR = {baseTotal}% of score. Remaining {skillsWeight}% comes from individual skill ratings.
+          POT + OVR = {baseTotal}% of score. Remaining {skillsWeight}% comes from individual skill ratings with development factor.
         </p>
         <div className="space-y-4">
           <div>
@@ -362,7 +553,7 @@ export default function PhilosophyPage() {
           <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
             <div className="text-sm font-medium">Skills Weight: {skillsWeight}% (automatic)</div>
             <div className="text-xs text-gray-600 dark:text-gray-400">
-              This portion comes from individual ratings like Power, Contact, Stuff, etc.
+              This portion comes from individual ratings (Power, Contact, Stuff, etc.) with the Development Factor applied.
             </div>
           </div>
         </div>

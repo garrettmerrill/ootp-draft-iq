@@ -4,6 +4,8 @@ import {
   Tier,
   ScoreBreakdown,
   PitchArsenal,
+  DefenseRatings,
+  SpeedRatings,
   PITCHER_POSITIONS,
   PREMIUM_POSITIONS,
 } from '@/types';
@@ -383,24 +385,160 @@ function normalize(val: number | null): number {
   return Math.max(0, Math.min(100, ((val - 20) / 60) * 100));
 }
 
+// ==================== DEVELOPMENT FACTOR ====================
+/*
+ * Development Factor rewards players who are closer to their ceiling.
+ * 
+ * Formula: effectiveRating = potential × (0.7 + 0.3 × (current / potential))
+ * 
+ * Examples:
+ *   - 70 POT, 35 current → devFactor = 0.5 → effective = 70 × 0.85 = 59.5
+ *   - 70 POT, 60 current → devFactor = 0.86 → effective = 70 × 0.96 = 67.2
+ *   - 70 POT, 70 current → devFactor = 1.0 → effective = 70 × 1.0 = 70.0
+ * 
+ * The minimum floor is 20, so minimum devFactor = 20/80 = 0.25 → effective = potential × 0.775
+ */
+function calculateEffectiveRating(current: number | null, potential: number | null): number {
+  if (potential === null || potential === 0) return 0;
+  if (current === null) current = 20; // Floor
+  
+  const developmentFactor = current / potential;
+  const effectiveRating = potential * (0.7 + 0.3 * developmentFactor);
+  
+  return effectiveRating;
+}
+
+// ==================== SPEED CALCULATION ====================
+/*
+ * Speed Score is a weighted composite of all speed-related attributes:
+ *   - Speed: 55%
+ *   - Baserunning: 20%
+ *   - Stealing Ability: 15%
+ *   - Stealing Aggression: 10%
+ */
+function calculateSpeedScore(speedRatings: SpeedRatings | null): number {
+  if (!speedRatings) return 0;
+  
+  const speed = speedRatings.speed || 0;
+  const baserunning = speedRatings.baserunning || 0;
+  const stealingAbility = speedRatings.stealingAbility || 0;
+  const stealingAggression = speedRatings.stealingAggression || 0;
+  
+  return (
+    speed * 0.55 +
+    baserunning * 0.20 +
+    stealingAbility * 0.15 +
+    stealingAggression * 0.10
+  );
+}
+
+// ==================== DEFENSE CALCULATION ====================
+/*
+ * Defense Score uses position-specific weights derived from OOTP's position rating calculations.
+ * 
+ * Position Weights (from regression analysis):
+ *   C:  Blocking 40%, Framing 35%, Arm 25%
+ *   1B: Error 60%, Range 40%
+ *   2B: Error 45%, Turn DP 35%, Range 20%
+ *   3B: Error 45%, Arm 40%, Range 15%
+ *   SS: Range 40%, Error 25%, Turn DP 20%, Arm 15%
+ *   LF: Error 50%, Range 30%, Arm 20%
+ *   CF: Range 75%, Error 15%, Arm 10%
+ *   RF: Arm 35%, Range 35%, Error 30%
+ */
+function calculateDefenseScore(defenseRatings: DefenseRatings | null, position: string): number {
+  if (!defenseRatings) return 0;
+  
+  const d = defenseRatings;
+  
+  switch (position) {
+    case 'C':
+      return (
+        (d.catcherAbility || 0) * 0.40 +
+        (d.catcherFraming || 0) * 0.35 +
+        (d.catcherArm || 0) * 0.25
+      );
+    
+    case '1B':
+      return (
+        (d.infieldError || 0) * 0.60 +
+        (d.infieldRange || 0) * 0.40
+      );
+    
+    case '2B':
+      return (
+        (d.infieldError || 0) * 0.45 +
+        (d.turnDoublePlay || 0) * 0.35 +
+        (d.infieldRange || 0) * 0.20
+      );
+    
+    case '3B':
+      return (
+        (d.infieldError || 0) * 0.45 +
+        (d.infieldArm || 0) * 0.40 +
+        (d.infieldRange || 0) * 0.15
+      );
+    
+    case 'SS':
+      return (
+        (d.infieldRange || 0) * 0.40 +
+        (d.infieldError || 0) * 0.25 +
+        (d.turnDoublePlay || 0) * 0.20 +
+        (d.infieldArm || 0) * 0.15
+      );
+    
+    case 'LF':
+      return (
+        (d.outfieldError || 0) * 0.50 +
+        (d.outfieldRange || 0) * 0.30 +
+        (d.outfieldArm || 0) * 0.20
+      );
+    
+    case 'CF':
+      return (
+        (d.outfieldRange || 0) * 0.75 +
+        (d.outfieldError || 0) * 0.15 +
+        (d.outfieldArm || 0) * 0.10
+      );
+    
+    case 'RF':
+      return (
+        (d.outfieldArm || 0) * 0.35 +
+        (d.outfieldRange || 0) * 0.35 +
+        (d.outfieldError || 0) * 0.30
+      );
+    
+    default:
+      // Fallback for unknown positions - use best available
+      if (d.catcherAbility) {
+        return (d.catcherAbility + (d.catcherFraming || 0) + (d.catcherArm || 0)) / 3;
+      } else if (d.infieldRange) {
+        return (d.infieldRange + (d.infieldError || 0) + (d.infieldArm || 0)) / 3;
+      } else if (d.outfieldRange) {
+        return (d.outfieldRange + (d.outfieldError || 0) + (d.outfieldArm || 0)) / 3;
+      }
+      return 0;
+  }
+}
+
 // ==================== COMPOSITE SCORE ====================
 /*
  * HOW SCORING WORKS:
  * 
  * The composite score has 3 main parts that add together:
  * 
- * 1. BASE SCORE (from POT/OVR weights):
- *    - Your POT weight % of the player's potential rating (20-80 scale → 0-100)
- *    - Your OVR weight % of the player's overall rating
- *    - Example: 70 POT with 50% weight = 41.7 points, 35 OVR with 20% weight = 5 points
+ * 1. BASE SCORE (from POT/OVR weights, default 35%):
+ *    - POT Weight (default 25%): Player's potential rating (20-80 scale → 0-100)
+ *    - OVR Weight (default 10%): Player's overall rating
  * 
- * 2. SKILLS SCORE (from rating weights):
- *    - The remaining % (100 - POT weight - OVR weight) comes from individual skills
- *    - For batters: Power, Contact (or BABIP+AvoidK), Eye, Gap, Speed, Defense
- *    - For pitchers: Stuff, Movement (or PBABIP+HR Rate), Control, Stamina, Arsenal
- *    - Each skill is weighted by your philosophy settings
+ * 2. SKILLS SCORE (default 65% of score):
+ *    - Uses EFFECTIVE RATINGS with Development Factor
+ *    - effectiveRating = potential × (0.7 + 0.3 × (current / potential))
+ *    - Rewards players closer to their ceiling
+ *    - For batters: Power, Contact, Eye, Gap, Speed (weighted composite), Defense (position-specific)
+ *    - For pitchers: Stuff, Movement/PBABIP, Control, Stamina, Arsenal
  * 
- * 3. ADJUSTMENTS (bonuses and penalties):
+ * 3. ADJUSTMENTS (flat bonuses and penalties):
  *    - Risk penalty: High/Very High risk players lose points
  *    - Position bonus: Priority positions get extra points
  *    - College/HS bonus: If you prefer one over the other
@@ -408,10 +546,24 @@ function normalize(val: number | null): number {
  *    - Personality penalties: Low work ethic, injury prone, etc. subtract points
  *    - Batter/Pitcher type bonuses: Flyball hitters, groundball pitchers, etc.
  * 
- * EXAMPLE for a 70 POT / 35 OVR batter with default weights:
- *   Base: (70 POT → 83.3 normalized × 40%) + (35 OVR → 25 normalized × 20%) = 38.3
- *   Skills: 40% of score from weighted average of Power, Contact, Eye, etc.
- *   Adjustments: +5 for High Work Ethic, -10 for High Risk, etc.
+ * SPEED CALCULATION:
+ *    Speed 55% + Baserunning 20% + Stealing Ability 15% + Stealing Aggression 10%
+ * 
+ * DEFENSE CALCULATION (position-specific weights):
+ *    C:  Blocking 40%, Framing 35%, Arm 25%
+ *    1B: Error 60%, Range 40%
+ *    2B: Error 45%, Turn DP 35%, Range 20%
+ *    3B: Error 45%, Arm 40%, Range 15%
+ *    SS: Range 40%, Error 25%, Turn DP 20%, Arm 15%
+ *    LF: Error 50%, Range 30%, Arm 20%
+ *    CF: Range 75%, Error 15%, Arm 10%
+ *    RF: Arm 35%, Range 35%, Error 30%
+ * 
+ * EXAMPLE for a 70 POT / 35 OVR SS with 50% developed skills, default weights:
+ *   Base: (70 POT → 83.3 × 25%) + (35 OVR → 25 × 10%) = 20.8 + 2.5 = 23.3 pts
+ *   Skills: 65% × weighted avg of effective ratings = ~45 pts
+ *   Adjustments: +5 High Work Ethic, -10 High Risk = -5 pts
+ *   TOTAL: ~63 points → "Very Good" tier
  */
 
 export function calculateCompositeScore(player: Player, philosophy: DraftPhilosophy): { score: number; breakdown: ScoreBreakdown } {
@@ -441,7 +593,7 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
   const ovrNormalized = normalize(player.overall);
   breakdown.overallContribution = (ovrNormalized * philosophy.overallWeight) / 100;
 
-  // 3. SKILLS SCORE: Calculate weighted average of individual ratings
+  // 3. SKILLS SCORE: Calculate weighted average of individual ratings with development factor
   let skillsScore = 0;
   let totalSkillWeight = 0;
 
@@ -450,9 +602,10 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
     const a = player.pitchArsenal;
     const w = isStarter ? philosophy.spWeights : philosophy.rpWeights;
 
-    // Stuff
+    // Stuff (with development factor)
     if (p.stuffPot !== null) {
-      const contrib = normalize(p.stuffPot) * w.stuff;
+      const effectiveStuff = calculateEffectiveRating(p.stuff, p.stuffPot);
+      const contrib = normalize(effectiveStuff) * w.stuff;
       breakdown.ratingContributions['Stuff'] = contrib / 100;
       skillsScore += contrib;
       totalSkillWeight += w.stuff;
@@ -463,35 +616,39 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
     
     if (useMovement) {
       if (p.movementPot !== null) {
-        const contrib = normalize(p.movementPot) * w.movement;
+        const effectiveMovement = calculateEffectiveRating(p.movement, p.movementPot);
+        const contrib = normalize(effectiveMovement) * w.movement;
         breakdown.ratingContributions['Movement'] = contrib / 100;
         skillsScore += contrib;
         totalSkillWeight += w.movement;
       }
     } else {
       if (p.pBabipPot !== null) {
-        const contrib = normalize(p.pBabipPot) * w.pBabip;
+        const effectivePBabip = calculateEffectiveRating(p.pBabip, p.pBabipPot);
+        const contrib = normalize(effectivePBabip) * w.pBabip;
         breakdown.ratingContributions['PBABIP'] = contrib / 100;
         skillsScore += contrib;
         totalSkillWeight += w.pBabip;
       }
       if (p.hrRatePot !== null) {
-        const contrib = normalize(p.hrRatePot) * w.hrRate;
+        const effectiveHrRate = calculateEffectiveRating(p.hrRate, p.hrRatePot);
+        const contrib = normalize(effectiveHrRate) * w.hrRate;
         breakdown.ratingContributions['HR Rate'] = contrib / 100;
         skillsScore += contrib;
         totalSkillWeight += w.hrRate;
       }
     }
 
-    // Control
+    // Control (with development factor)
     if (p.controlPot !== null) {
-      const contrib = normalize(p.controlPot) * w.control;
+      const effectiveControl = calculateEffectiveRating(p.control, p.controlPot);
+      const contrib = normalize(effectiveControl) * w.control;
       breakdown.ratingContributions['Control'] = contrib / 100;
       skillsScore += contrib;
       totalSkillWeight += w.control;
     }
 
-    // Stamina (SP only)
+    // Stamina (SP only - no development factor, it's a static rating)
     if (isStarter && p.stamina !== null) {
       const staminaWeight = philosophy.spWeights.stamina;
       const contrib = normalize(p.stamina) * staminaWeight;
@@ -501,11 +658,34 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
     }
 
     // Arsenal quality (count of 55+ potential pitches, max 3 for full credit)
-    const pitchPots = [a.fastballPot, a.changeupPot, a.curveballPot, a.sliderPot, a.sinkerPot, 
-                       a.splitterPot, a.cutterPot, a.circleChangePot, a.forkballPot]
-      .filter(pt => pt !== null && pt >= 55).length;
-    const arsenalNormalized = Math.min(pitchPots / 3, 1) * 100;
-    const arsenalContrib = arsenalNormalized * w.arsenal;
+    // Use development factor for arsenal by comparing current vs potential pitch grades
+    const pitchPots = [
+      { current: a.fastball, pot: a.fastballPot },
+      { current: a.changeup, pot: a.changeupPot },
+      { current: a.curveball, pot: a.curveballPot },
+      { current: a.slider, pot: a.sliderPot },
+      { current: a.sinker, pot: a.sinkerPot },
+      { current: a.splitter, pot: a.splitterPot },
+      { current: a.cutter, pot: a.cutterPot },
+      { current: a.circleChange, pot: a.circleChangePot },
+      { current: a.forkball, pot: a.forkballPot },
+    ].filter(pt => pt.pot !== null && pt.pot >= 55);
+    
+    // Calculate average development factor for arsenal
+    let arsenalDevFactor = 1;
+    if (pitchPots.length > 0) {
+      const devFactors = pitchPots.map(pt => {
+        if (pt.pot && pt.pot > 0) {
+          return (pt.current || 20) / pt.pot;
+        }
+        return 1;
+      });
+      arsenalDevFactor = devFactors.reduce((a, b) => a + b, 0) / devFactors.length;
+    }
+    
+    const arsenalPotentialScore = Math.min(pitchPots.length / 3, 1) * 100;
+    const effectiveArsenal = arsenalPotentialScore * (0.7 + 0.3 * arsenalDevFactor);
+    const arsenalContrib = effectiveArsenal * w.arsenal;
     breakdown.ratingContributions['Arsenal'] = arsenalContrib / 100;
     skillsScore += arsenalContrib;
     totalSkillWeight += w.arsenal;
@@ -516,9 +696,10 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
     const d = player.defenseRatings;
     const w = philosophy.batterWeights;
 
-    // Power
+    // Power (with development factor)
     if (b.powerPot !== null) {
-      const contrib = normalize(b.powerPot) * w.power;
+      const effectivePower = calculateEffectiveRating(b.power, b.powerPot);
+      const contrib = normalize(effectivePower) * w.power;
       breakdown.ratingContributions['Power'] = contrib / 100;
       skillsScore += contrib;
       totalSkillWeight += w.power;
@@ -527,61 +708,60 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
     // Contact vs BABIP+AvoidK toggle
     if (philosophy.useBabipKs) {
       if (b.babipPot !== null) {
-        const contrib = normalize(b.babipPot) * w.babip;
+        const effectiveBabip = calculateEffectiveRating(b.babip, b.babipPot);
+        const contrib = normalize(effectiveBabip) * w.babip;
         breakdown.ratingContributions['BABIP'] = contrib / 100;
         skillsScore += contrib;
         totalSkillWeight += w.babip;
       }
       if (b.avoidKPot !== null) {
-        const contrib = normalize(b.avoidKPot) * w.avoidK;
+        const effectiveAvoidK = calculateEffectiveRating(b.avoidK, b.avoidKPot);
+        const contrib = normalize(effectiveAvoidK) * w.avoidK;
         breakdown.ratingContributions['Avoid K'] = contrib / 100;
         skillsScore += contrib;
         totalSkillWeight += w.avoidK;
       }
     } else {
       if (b.contactPot !== null) {
-        const contrib = normalize(b.contactPot) * w.contact;
+        const effectiveContact = calculateEffectiveRating(b.contact, b.contactPot);
+        const contrib = normalize(effectiveContact) * w.contact;
         breakdown.ratingContributions['Contact'] = contrib / 100;
         skillsScore += contrib;
         totalSkillWeight += w.contact;
       }
     }
 
-    // Eye
+    // Eye (with development factor)
     if (b.eyePot !== null) {
-      const contrib = normalize(b.eyePot) * w.eye;
+      const effectiveEye = calculateEffectiveRating(b.eye, b.eyePot);
+      const contrib = normalize(effectiveEye) * w.eye;
       breakdown.ratingContributions['Eye'] = contrib / 100;
       skillsScore += contrib;
       totalSkillWeight += w.eye;
     }
 
-    // Gap
+    // Gap (with development factor)
     if (b.gapPot !== null) {
-      const contrib = normalize(b.gapPot) * w.gap;
+      const effectiveGap = calculateEffectiveRating(b.gap, b.gapPot);
+      const contrib = normalize(effectiveGap) * w.gap;
       breakdown.ratingContributions['Gap'] = contrib / 100;
       skillsScore += contrib;
       totalSkillWeight += w.gap;
     }
 
-    // Speed
-    if (s.speed !== null) {
-      const contrib = normalize(s.speed) * w.speed;
+    // Speed (weighted composite - no development factor, these are static)
+    const speedScore = calculateSpeedScore(s);
+    if (speedScore > 0) {
+      const contrib = normalize(speedScore) * w.speed;
       breakdown.ratingContributions['Speed'] = contrib / 100;
       skillsScore += contrib;
       totalSkillWeight += w.speed;
     }
 
-    // Defense (best of IF range, OF range, or catcher ability based on position)
-    let defenseRating = 0;
-    if (player.position === 'C') {
-      defenseRating = Math.max(d.catcherAbility || 0, d.catcherFraming || 0);
-    } else if (['LF', 'CF', 'RF'].includes(player.position)) {
-      defenseRating = d.outfieldRange || 0;
-    } else {
-      defenseRating = d.infieldRange || 0;
-    }
-    if (defenseRating > 0) {
-      const contrib = normalize(defenseRating) * w.defense;
+    // Defense (position-specific weighted composite - no development factor)
+    const defenseScore = calculateDefenseScore(d, player.position);
+    if (defenseScore > 0) {
+      const contrib = normalize(defenseScore) * w.defense;
       breakdown.ratingContributions['Defense'] = contrib / 100;
       skillsScore += contrib;
       totalSkillWeight += w.defense;
@@ -834,14 +1014,12 @@ export function findSimilarPlayers(player: Player, allPlayers: Player[], count: 
 
 export function calculateSpeedDefenseScore(player: Player): number | null {
   if (!player.speedRatings || !player.defenseRatings) return null;
-  const s = player.speedRatings, d = player.defenseRatings;
+  const s = player.speedRatings;
   
-  let bestDef = 0;
-  if (player.position === 'C') bestDef = Math.max(d.catcherAbility || 0, d.catcherFraming || 0);
-  else if (['LF', 'CF', 'RF'].includes(player.position)) bestDef = Math.max(d.outfieldRange || 0, d.outfieldArm || 0);
-  else bestDef = Math.max(d.infieldRange || 0, d.infieldArm || 0, d.turnDoublePlay || 0);
+  const speedScore = calculateSpeedScore(s);
+  const defenseScore = calculateDefenseScore(player.defenseRatings, player.position);
   
-  return (s.speed || 0) * 0.4 + bestDef * 0.6;
+  return speedScore * 0.4 + defenseScore * 0.6;
 }
 
 export function getSwingTendencySummary(player: Player): string {
