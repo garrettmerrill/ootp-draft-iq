@@ -758,7 +758,7 @@ function PlayerCard({
         </div>
 
         {/* Action buttons column - separate from clickable area */}
-        <div className="flex flex-col items-center gap-1 pl-3 border-l border-dugout-200 dark:border-dugout-700 flex-shrink-0 relative z-50">
+        <div className="flex flex-col items-center gap-1 pl-3 border-l border-dugout-200 dark:border-dugout-700 flex-shrink-0 relative z-30">
           {!player.isDrafted && !player.isNotInterested && (
             player.ranking ? (
               <button
@@ -846,29 +846,34 @@ function PlayerCard({
                         />
                       )}
                       
+                      {/* PBABIP and HR Rate are subratings of Movement */}
+                      {player.pitchingRatings?.movement !== null && player.pitchingRatings && (
+                        <div className="pl-4 space-y-2 border-l-2 border-dugout-200 dark:border-dugout-700 ml-1">
+                          {player.pitchingRatings?.pBabip !== null && (
+                            <RatingBar 
+                              label="PBABIP" 
+                              current={player.pitchingRatings.pBabip!} 
+                              potential={player.pitchingRatings.pBabipPot} 
+                              small
+                            />
+                          )}
+                          
+                          {player.pitchingRatings?.hrRate !== null && (
+                            <RatingBar 
+                              label="HR Rate" 
+                              current={player.pitchingRatings.hrRate!} 
+                              potential={player.pitchingRatings.hrRatePot} 
+                              small
+                            />
+                          )}
+                        </div>
+                      )}
+                      
                       {player.pitchingRatings?.control !== null && player.pitchingRatings && (
                         <RatingBar 
                           label="Control" 
                           current={player.pitchingRatings.control!} 
                           potential={player.pitchingRatings.controlPot} 
-                        />
-                      )}
-                      
-                      {player.pitchingRatings?.pBabip !== null && player.pitchingRatings && (
-                        <RatingBar 
-                          label="PBABIP" 
-                          current={player.pitchingRatings.pBabip!} 
-                          potential={player.pitchingRatings.pBabipPot} 
-                          small
-                        />
-                      )}
-                      
-                      {player.pitchingRatings?.hrRate !== null && player.pitchingRatings && (
-                        <RatingBar 
-                          label="HR Rate" 
-                          current={player.pitchingRatings.hrRate!} 
-                          potential={player.pitchingRatings.hrRatePot} 
-                          small
                         />
                       )}
                       
@@ -1124,6 +1129,29 @@ function PlayerCard({
                         />
                       )}
                       
+                      {/* BABIP and Avoid K's are subratings of Contact */}
+                      {player.battingRatings?.contact !== null && player.battingRatings && (
+                        <div className="pl-4 space-y-2 border-l-2 border-dugout-200 dark:border-dugout-700 ml-1">
+                          {player.battingRatings?.babip !== null && (
+                            <RatingBar 
+                              label="BABIP" 
+                              current={player.battingRatings.babip!} 
+                              potential={player.battingRatings.babipPot} 
+                              small
+                            />
+                          )}
+                          
+                          {player.battingRatings?.avoidK !== null && (
+                            <RatingBar 
+                              label="Avoid K's" 
+                              current={player.battingRatings.avoidK!} 
+                              potential={player.battingRatings.avoidKPot} 
+                              small
+                            />
+                          )}
+                        </div>
+                      )}
+                      
                       {player.battingRatings?.gap !== null && player.battingRatings && (
                         <RatingBar 
                           label="Gap" 
@@ -1145,24 +1173,6 @@ function PlayerCard({
                           label="Eye" 
                           current={player.battingRatings.eye!} 
                           potential={player.battingRatings.eyePot} 
-                        />
-                      )}
-                      
-                      {player.battingRatings?.babip !== null && player.battingRatings && (
-                        <RatingBar 
-                          label="BABIP" 
-                          current={player.battingRatings.babip!} 
-                          potential={player.battingRatings.babipPot} 
-                          small
-                        />
-                      )}
-                      
-                      {player.battingRatings?.avoidK !== null && player.battingRatings && (
-                        <RatingBar 
-                          label="Avoid K's" 
-                          current={player.battingRatings.avoidK!} 
-                          potential={player.battingRatings.avoidKPot} 
-                          small
                         />
                       )}
                     </div>
