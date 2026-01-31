@@ -5,6 +5,7 @@ import { analyzeAllPlayers } from '@/lib/playerAnalysis';
 import { Player, DraftPhilosophy } from '@/types';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60; // Allow up to 60 seconds for this endpoint
 
 export async function POST(request: NextRequest) {
   try {
@@ -67,29 +68,40 @@ export async function POST(request: NextRequest) {
       philosophySkillsWeight: 100 - philosophy.potentialWeight - philosophy.overallWeight,
     };
 
-    // Batch update all players
-    const updatePromises = analyzed.map((player) =>
-      prisma.player.update({
-        where: { id: player.id },
-        data: {
-          compositeScore: player.compositeScore,
-          tier: player.tier,
-          isSleeper: player.isSleeper,
-          sleeperScore: player.sleeperScore,
-          archetypes: player.archetypes,
-          redFlags: player.redFlags,
-          greenFlags: player.greenFlags,
-          hasSplitsIssues: player.hasSplitsIssues,
-          isTwoWay: player.isTwoWay,
-        },
-      })
-    );
-
-    await Promise.all(updatePromises);
+    // Batch update players to avoid connection pool exhaustion
+    // Process in batches of 50 players at a time
+    const BATCH_SIZE = 50;
+    let updatedCount = 0;
+    
+    for (let i = 0; i < analyzed.length; i += BATCH_SIZE) {
+      const batch = analyzed.slice(i, i + BATCH_SIZE);
+      
+      // Use a transaction for each batch to ensure atomicity
+      await prisma.$transaction(
+        batch.map((player) =>
+          prisma.player.update({
+            where: { id: player.id },
+            data: {
+              compositeScore: player.compositeScore,
+              tier: player.tier,
+              isSleeper: player.isSleeper,
+              sleeperScore: player.sleeperScore,
+              archetypes: player.archetypes,
+              redFlags: player.redFlags,
+              greenFlags: player.greenFlags,
+              hasSplitsIssues: player.hasSplitsIssues,
+              isTwoWay: player.isTwoWay,
+            },
+          })
+        )
+      );
+      
+      updatedCount += batch.length;
+    }
 
     return NextResponse.json({
       success: true,
-      playersUpdated: analyzed.length,
+      playersUpdated: updatedCount,
       debug: debugInfo,
     });
   } catch (error) {
