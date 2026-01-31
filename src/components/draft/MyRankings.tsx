@@ -55,6 +55,7 @@ export function MyRankings({
   const [activeTier, setActiveTier] = useState<number | null>(null);
   const [overTier, setOverTier] = useState<number | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -278,6 +279,8 @@ export function MyRankings({
                 isDragOver={overTier === tier}
                 activeId={activeId}
                 activeTier={activeTier}
+                expandedPlayerId={expandedPlayerId}
+                onToggleExpand={setExpandedPlayerId}
               />
             ))}
 
