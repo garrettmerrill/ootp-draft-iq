@@ -598,6 +598,10 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
   // Then compute a weighted average and scale it by skillsWeight
   let weightedRatingSum = 0;
   let totalSkillWeight = 0;
+  
+  // Track individual skill contributions for breakdown
+  // We'll calculate actual contributions after we know the weighted average
+  const skillRatings: { name: string; normalizedRating: number; weight: number }[] = [];
 
   if (isPitcher && player.pitchingRatings && player.pitchArsenal) {
     const p = player.pitchingRatings;
@@ -608,7 +612,7 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
     if (p.stuffPot !== null) {
       const effectiveStuff = calculateEffectiveRating(p.stuff, p.stuffPot);
       const normalizedRating = normalize(effectiveStuff);
-      breakdown.ratingContributions['Stuff'] = normalizedRating;
+      skillRatings.push({ name: 'Stuff', normalizedRating, weight: w.stuff });
       weightedRatingSum += normalizedRating * w.stuff;
       totalSkillWeight += w.stuff;
     }
@@ -620,7 +624,7 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
       if (p.movementPot !== null) {
         const effectiveMovement = calculateEffectiveRating(p.movement, p.movementPot);
         const normalizedRating = normalize(effectiveMovement);
-        breakdown.ratingContributions['Movement'] = normalizedRating;
+        skillRatings.push({ name: 'Movement', normalizedRating, weight: w.movement });
         weightedRatingSum += normalizedRating * w.movement;
         totalSkillWeight += w.movement;
       }
@@ -628,14 +632,14 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
       if (p.pBabipPot !== null) {
         const effectivePBabip = calculateEffectiveRating(p.pBabip, p.pBabipPot);
         const normalizedRating = normalize(effectivePBabip);
-        breakdown.ratingContributions['PBABIP'] = normalizedRating;
+        skillRatings.push({ name: 'PBABIP', normalizedRating, weight: w.pBabip });
         weightedRatingSum += normalizedRating * w.pBabip;
         totalSkillWeight += w.pBabip;
       }
       if (p.hrRatePot !== null) {
         const effectiveHrRate = calculateEffectiveRating(p.hrRate, p.hrRatePot);
         const normalizedRating = normalize(effectiveHrRate);
-        breakdown.ratingContributions['HR Rate'] = normalizedRating;
+        skillRatings.push({ name: 'HR Rate', normalizedRating, weight: w.hrRate });
         weightedRatingSum += normalizedRating * w.hrRate;
         totalSkillWeight += w.hrRate;
       }
@@ -645,7 +649,7 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
     if (p.controlPot !== null) {
       const effectiveControl = calculateEffectiveRating(p.control, p.controlPot);
       const normalizedRating = normalize(effectiveControl);
-      breakdown.ratingContributions['Control'] = normalizedRating;
+      skillRatings.push({ name: 'Control', normalizedRating, weight: w.control });
       weightedRatingSum += normalizedRating * w.control;
       totalSkillWeight += w.control;
     }
@@ -654,7 +658,7 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
     if (isStarter && p.stamina !== null) {
       const staminaWeight = philosophy.spWeights.stamina;
       const normalizedRating = normalize(p.stamina);
-      breakdown.ratingContributions['Stamina'] = normalizedRating;
+      skillRatings.push({ name: 'Stamina', normalizedRating, weight: staminaWeight });
       weightedRatingSum += normalizedRating * staminaWeight;
       totalSkillWeight += staminaWeight;
     }
@@ -688,7 +692,7 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
     // Arsenal score: 0-100 based on number of quality pitches (max 3 for full credit)
     const arsenalPotentialScore = Math.min(pitchPots.length / 3, 1) * 100;
     const effectiveArsenal = arsenalPotentialScore * (0.7 + 0.3 * arsenalDevFactor);
-    breakdown.ratingContributions['Arsenal'] = effectiveArsenal;
+    skillRatings.push({ name: 'Arsenal', normalizedRating: effectiveArsenal, weight: w.arsenal });
     weightedRatingSum += effectiveArsenal * w.arsenal;
     totalSkillWeight += w.arsenal;
 
@@ -702,7 +706,7 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
     if (b.powerPot !== null) {
       const effectivePower = calculateEffectiveRating(b.power, b.powerPot);
       const normalizedRating = normalize(effectivePower);
-      breakdown.ratingContributions['Power'] = normalizedRating;
+      skillRatings.push({ name: 'Power', normalizedRating, weight: w.power });
       weightedRatingSum += normalizedRating * w.power;
       totalSkillWeight += w.power;
     }
@@ -712,14 +716,14 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
       if (b.babipPot !== null) {
         const effectiveBabip = calculateEffectiveRating(b.babip, b.babipPot);
         const normalizedRating = normalize(effectiveBabip);
-        breakdown.ratingContributions['BABIP'] = normalizedRating;
+        skillRatings.push({ name: 'BABIP', normalizedRating, weight: w.babip });
         weightedRatingSum += normalizedRating * w.babip;
         totalSkillWeight += w.babip;
       }
       if (b.avoidKPot !== null) {
         const effectiveAvoidK = calculateEffectiveRating(b.avoidK, b.avoidKPot);
         const normalizedRating = normalize(effectiveAvoidK);
-        breakdown.ratingContributions['Avoid K'] = normalizedRating;
+        skillRatings.push({ name: 'Avoid K', normalizedRating, weight: w.avoidK });
         weightedRatingSum += normalizedRating * w.avoidK;
         totalSkillWeight += w.avoidK;
       }
@@ -727,7 +731,7 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
       if (b.contactPot !== null) {
         const effectiveContact = calculateEffectiveRating(b.contact, b.contactPot);
         const normalizedRating = normalize(effectiveContact);
-        breakdown.ratingContributions['Contact'] = normalizedRating;
+        skillRatings.push({ name: 'Contact', normalizedRating, weight: w.contact });
         weightedRatingSum += normalizedRating * w.contact;
         totalSkillWeight += w.contact;
       }
@@ -737,7 +741,7 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
     if (b.eyePot !== null) {
       const effectiveEye = calculateEffectiveRating(b.eye, b.eyePot);
       const normalizedRating = normalize(effectiveEye);
-      breakdown.ratingContributions['Eye'] = normalizedRating;
+      skillRatings.push({ name: 'Eye', normalizedRating, weight: w.eye });
       weightedRatingSum += normalizedRating * w.eye;
       totalSkillWeight += w.eye;
     }
@@ -746,7 +750,7 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
     if (b.gapPot !== null) {
       const effectiveGap = calculateEffectiveRating(b.gap, b.gapPot);
       const normalizedRating = normalize(effectiveGap);
-      breakdown.ratingContributions['Gap'] = normalizedRating;
+      skillRatings.push({ name: 'Gap', normalizedRating, weight: w.gap });
       weightedRatingSum += normalizedRating * w.gap;
       totalSkillWeight += w.gap;
     }
@@ -755,7 +759,7 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
     const speedScore = calculateSpeedScore(s);
     if (speedScore > 0) {
       const normalizedRating = normalize(speedScore);
-      breakdown.ratingContributions['Speed'] = normalizedRating;
+      skillRatings.push({ name: 'Speed', normalizedRating, weight: w.speed });
       weightedRatingSum += normalizedRating * w.speed;
       totalSkillWeight += w.speed;
     }
@@ -764,7 +768,7 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
     const defenseScore = calculateDefenseScore(d, player.position);
     if (defenseScore > 0) {
       const normalizedRating = normalize(defenseScore);
-      breakdown.ratingContributions['Defense'] = normalizedRating;
+      skillRatings.push({ name: 'Defense', normalizedRating, weight: w.defense });
       weightedRatingSum += normalizedRating * w.defense;
       totalSkillWeight += w.defense;
     }
@@ -774,6 +778,13 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
   if (totalSkillWeight > 0) {
     const weightedAvgSkills = weightedRatingSum / totalSkillWeight;  // 0-100
     breakdown.skillsContribution = (weightedAvgSkills * skillsWeight) / 100;  // scaled by skillsWeight%
+    
+    // Now calculate each skill's actual contribution to the final score
+    // Each skill contributes: (normalizedRating * weight / totalSkillWeight) * skillsWeight / 100
+    for (const skill of skillRatings) {
+      const contribution = (skill.normalizedRating * skill.weight / totalSkillWeight) * skillsWeight / 100;
+      breakdown.ratingContributions[skill.name] = contribution;
+    }
   }
 
   // 4. ADJUSTMENTS
