@@ -88,8 +88,6 @@ export async function GET() {
         draftRound: r.player.draftRound,
         draftPick: r.player.draftPick,
         draftTeam: r.player.draftTeam,
-        // Score breakdown (stored as JSON)
-        scoreBreakdown: r.player.scoreBreakdown,
       },
     }));
 
