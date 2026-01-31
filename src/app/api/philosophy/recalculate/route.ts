@@ -55,6 +55,18 @@ export async function POST(request: NextRequest) {
     // Recalculate scores
     const analyzed = analyzeAllPlayers(appPlayers, philosophy);
 
+    // Find a sample player for debugging (Jim Morales or first player)
+    const samplePlayer = analyzed.find(p => p.name.includes('Morales')) || analyzed[0];
+    const debugInfo = {
+      samplePlayerName: samplePlayer?.name,
+      samplePlayerScore: samplePlayer?.compositeScore,
+      samplePlayerTier: samplePlayer?.tier,
+      philosophyName: activePhilosophy.name,
+      philosophyPotWeight: philosophy.potentialWeight,
+      philosophyOvrWeight: philosophy.overallWeight,
+      philosophySkillsWeight: 100 - philosophy.potentialWeight - philosophy.overallWeight,
+    };
+
     // Batch update all players
     const updatePromises = analyzed.map((player) =>
       prisma.player.update({
@@ -78,6 +90,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       playersUpdated: analyzed.length,
+      debug: debugInfo,
     });
   } catch (error) {
     console.error('Error recalculating players:', error);

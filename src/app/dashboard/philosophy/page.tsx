@@ -162,7 +162,16 @@ export default function PhilosophyPage() {
     try {
       const res = await fetch('/api/philosophy/recalculate', { method: 'POST' });
       const data = await res.json();
-      alert(`Recalculated ${data.playersUpdated} players!`);
+      
+      // Show debug info
+      const debugMsg = data.debug 
+        ? `\n\nDEBUG INFO:\nSample: ${data.debug.samplePlayerName}\nServer calculated score: ${data.debug.samplePlayerScore?.toFixed(2)}\nPhilosophy: ${data.debug.philosophyName}\nPOT/OVR/Skills weights: ${data.debug.philosophyPotWeight}/${data.debug.philosophyOvrWeight}/${data.debug.philosophySkillsWeight}`
+        : '';
+      
+      alert(`Recalculated ${data.playersUpdated} players!${debugMsg}`);
+      
+      // Refresh players to see updated scores
+      await fetchPlayers();
     } catch (error) {
       alert('Failed to recalculate players');
     } finally {
