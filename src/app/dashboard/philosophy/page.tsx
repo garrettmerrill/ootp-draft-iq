@@ -3,6 +3,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { DraftPhilosophy, DEFAULT_PHILOSOPHY, POSITIONS, Player } from '@/types';
 import { calculateCompositeScore, assignTier } from '@/lib/playerAnalysis';
+import { useToast } from '@/components/ui/Toast';
+import { ConfirmModal, InputModal } from '@/components/ui/Modal';
 
 const BATTER_TYPES = ['Flyball', 'Line Drive', 'Normal', 'Groundball'];
 const PITCHER_TYPES = ['EX GB', 'GB', 'NEU', 'FB', 'EX FB'];
@@ -47,14 +49,21 @@ function migratePhilosophy(old: any): DraftPhilosophy {
 }
 
 export default function PhilosophyPage() {
+  const { showToast, updateToast, dismissToast } = useToast();
   const [philosophies, setPhilosophies] = useState<any[]>([]);
   const [presets, setPresets] = useState<any[]>([]);
   const [activePhilosophy, setActivePhilosophy] = useState<any | null>(null);
   const [editing, setEditing] = useState<DraftPhilosophy>(DEFAULT_PHILOSOPHY);
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  
   const [saving, setSaving] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
   const [loading, setLoading] = useState(true);
+  
+  // Modal states
+  const [showSaveAsModal, setShowSaveAsModal] = useState(false);
+  const [showOverwriteModal, setShowOverwriteModal] = useState(false);
+  const [showRecalculateModal, setShowRecalculateModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState<string | null>(null);
   
   // Score Tester State
   const [players, setPlayers] = useState<Player[]>([]);
@@ -121,68 +130,126 @@ export default function PhilosophyPage() {
     return true;
   }
 
-  async function handleSave() {
+  // Overwrite current active philosophy
+  async function handleOverwrite() {
+    if (!activePhilosophy) {
+      showToast({ type: 'error', title: 'Error', message: 'No active philosophy to overwrite' });
+      return;
+    }
     setSaving(true);
     try {
-      const isUpdating = editing.id && !editing.isPreset;
-      
-      if (isUpdating) {
-        await fetch(`/api/philosophy/${editing.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ philosophy: editing }),
-        });
-      } else {
-        const { id, ...philosophyData } = editing;
-        await fetch('/api/philosophy/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            philosophy: {
-              ...philosophyData,
-              isActive: false,
-              isPreset: false,
-            }
-          }),
-        });
-      }
+      await fetch(`/api/philosophy/${activePhilosophy.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ philosophy: editing }),
+      });
       await fetchPhilosophies();
-      alert(isUpdating ? 'Philosophy updated successfully!' : 'Philosophy created successfully!');
+      showToast({ type: 'success', title: 'Saved', message: `Philosophy "${editing.name}" updated successfully` });
     } catch (error) {
-      alert('Failed to save philosophy');
+      showToast({ type: 'error', title: 'Error', message: 'Failed to save philosophy' });
+    } finally {
+      setSaving(false);
+    }
+  }
+  
+  // Save as new philosophy
+  async function handleSaveAsNew(values: { name: string; description: string }) {
+    setSaving(true);
+    try {
+      const { id, ...philosophyData } = editing;
+      await fetch('/api/philosophy/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          philosophy: {
+            ...philosophyData,
+            name: values.name,
+            description: values.description,
+            isActive: false,
+            isPreset: false,
+          }
+        }),
+      });
+      await fetchPhilosophies();
+      showToast({ type: 'success', title: 'Created', message: `Philosophy "${values.name}" created successfully` });
+    } catch (error) {
+      showToast({ type: 'error', title: 'Error', message: 'Failed to create philosophy' });
     } finally {
       setSaving(false);
     }
   }
 
   async function handleRecalculate() {
-    if (!confirm('This will recalculate all players. Continue?')) return;
-    
     setRecalculating(true);
+    
+    // Show progress toast
+    const toastId = showToast({
+      type: 'progress',
+      title: 'Recalculating Players',
+      message: 'Starting...',
+      progress: { current: 0, total: players.length || 100 },
+    });
+    
     try {
-      const res = await fetch('/api/philosophy/recalculate', { method: 'POST' });
-      const data = await res.json();
+      const res = await fetch('/api/philosophy/recalculate', {
+        method: 'POST',
+        headers: {
+          'Accept': 'text/event-stream',
+        },
+      });
       
-      // Check if there was an error
-      if (!res.ok || data.error) {
-        const errorDetails = data.details ? `\n\nDetails: ${data.details}` : '';
-        alert(`Failed to recalculate: ${data.error || 'Unknown error'}${errorDetails}`);
-        console.error('Recalculate error:', data);
-        return;
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.details || data.error || 'Failed to recalculate');
       }
       
-      // Show debug info on success
-      const debugMsg = data.debug 
-        ? `\n\nDEBUG INFO:\nSample: ${data.debug.samplePlayerName}\nServer calculated score: ${data.debug.samplePlayerScore?.toFixed(2)}\nPhilosophy: ${data.debug.philosophyName}\nPOT/OVR/Skills weights: ${data.debug.philosophyPotWeight}/${data.debug.philosophyOvrWeight}/${data.debug.philosophySkillsWeight}`
-        : '';
+      const reader = res.body?.getReader();
+      const decoder = new TextDecoder();
       
-      alert(`Recalculated ${data.playersUpdated} players!${debugMsg}`);
-      
-      // Refresh players to see updated scores
-      await fetchPlayers();
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          const text = decoder.decode(value);
+          const lines = text.split('\n');
+          
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                
+                if (data.type === 'progress') {
+                  updateToast(toastId, {
+                    message: `Processing players...`,
+                    progress: { current: data.current, total: data.total },
+                  });
+                } else if (data.type === 'complete') {
+                  dismissToast(toastId);
+                  showToast({
+                    type: 'success',
+                    title: 'Recalculation Complete',
+                    message: `Updated ${data.playersUpdated} players`,
+                  });
+                  await fetchPlayers();
+                } else if (data.type === 'error') {
+                  throw new Error(data.message);
+                }
+              } catch (e) {
+                // Ignore JSON parse errors for incomplete chunks
+              }
+            }
+          }
+        }
+      }
     } catch (error) {
-      console.error('Recalculate network error:', error);
-      alert(`Failed to recalculate players: ${error instanceof Error ? error.message : 'Network error'}`);
+      dismissToast(toastId);
+      showToast({
+        type: 'error',
+        title: 'Recalculation Failed',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      });
+      console.error('Recalculate error:', error);
     } finally {
       setRecalculating(false);
     }
@@ -196,19 +263,19 @@ export default function PhilosophyPage() {
         body: JSON.stringify({ philosophyId: id }),
       });
       await fetchPhilosophies();
+      showToast({ type: 'success', title: 'Activated', message: 'Philosophy is now active' });
     } catch (error) {
-      alert('Failed to activate philosophy');
+      showToast({ type: 'error', title: 'Error', message: 'Failed to activate philosophy' });
     }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Are you sure you want to delete this philosophy?')) return;
-    
     try {
       await fetch(`/api/philosophy/${id}`, { method: 'DELETE' });
       await fetchPhilosophies();
+      showToast({ type: 'success', title: 'Deleted', message: 'Philosophy deleted' });
     } catch (error) {
-      alert('Failed to delete philosophy');
+      showToast({ type: 'error', title: 'Error', message: 'Failed to delete philosophy' });
     }
   }
   
@@ -258,15 +325,6 @@ export default function PhilosophyPage() {
             Configure how players are evaluated and ranked
           </p>
         </div>
-        <button
-          onClick={() => {
-            setEditing({ ...DEFAULT_PHILOSOPHY, name: 'New Philosophy' });
-            setShowCreateModal(true);
-          }}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-        >
-          Create New
-        </button>
       </div>
 
       {/* Score Calculation Explanation */}
@@ -505,7 +563,7 @@ export default function PhilosophyPage() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleDelete(phil.id);
+                      setShowDeleteModal(phil.id);
                     }}
                     className="text-xs px-2 py-1 bg-red-600 text-white rounded"
                   >
@@ -1153,15 +1211,26 @@ export default function PhilosophyPage() {
       {/* Action Buttons */}
       <div className="flex gap-4 justify-end">
         <button
-          onClick={handleSave}
-          disabled={!isValid() || saving}
+          onClick={() => setShowOverwriteModal(true)}
+          disabled={!isValid() || saving || !activePhilosophy}
           className={`px-6 py-3 rounded-lg font-semibold ${
-            isValid() && !saving
+            isValid() && !saving && activePhilosophy
               ? 'bg-blue-600 text-white hover:bg-blue-700'
               : 'bg-gray-400 text-gray-700 cursor-not-allowed'
           }`}
         >
-          {saving ? 'Saving...' : 'Save Philosophy'}
+          {saving ? 'Saving...' : 'Save'}
+        </button>
+        <button
+          onClick={() => setShowSaveAsModal(true)}
+          disabled={!isValid() || saving}
+          className={`px-6 py-3 rounded-lg font-semibold ${
+            isValid() && !saving
+              ? 'bg-purple-600 text-white hover:bg-purple-700'
+              : 'bg-gray-400 text-gray-700 cursor-not-allowed'
+          }`}
+        >
+          Save As New
         </button>
         <button
           onClick={handleRecalculate}
@@ -1171,6 +1240,43 @@ export default function PhilosophyPage() {
           {recalculating ? 'Recalculating...' : 'Recalculate All Players'}
         </button>
       </div>
+
+      {/* Modals */}
+      <ConfirmModal
+        isOpen={showOverwriteModal}
+        onClose={() => setShowOverwriteModal(false)}
+        onConfirm={handleOverwrite}
+        title="Overwrite Philosophy"
+        message={`Are you sure you want to overwrite "${activePhilosophy?.name || 'current philosophy'}" with your changes?`}
+        confirmText="Overwrite"
+      />
+      
+      <InputModal
+        isOpen={showSaveAsModal}
+        onClose={() => setShowSaveAsModal(false)}
+        onSubmit={handleSaveAsNew}
+        title="Save As New Philosophy"
+        nameLabel="Philosophy Name"
+        namePlaceholder="My Custom Philosophy"
+        descriptionLabel="Description"
+        descriptionPlaceholder="A brief description of this philosophy..."
+        submitText="Create"
+        initialName={editing.name + ' (Copy)'}
+        initialDescription={editing.description || ''}
+      />
+      
+      <ConfirmModal
+        isOpen={showDeleteModal !== null}
+        onClose={() => setShowDeleteModal(null)}
+        onConfirm={() => {
+          if (showDeleteModal) handleDelete(showDeleteModal);
+          setShowDeleteModal(null);
+        }}
+        title="Delete Philosophy"
+        message="Are you sure you want to delete this philosophy? This action cannot be undone."
+        confirmText="Delete"
+        confirmVariant="danger"
+      />
     </div>
   );
 }

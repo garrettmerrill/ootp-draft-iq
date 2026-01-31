@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { ChevronDown, ChevronRight, GripVertical, X } from 'lucide-react';
+import { CopyButton } from '@/components/ui/CopyButton';
 import { useDroppable } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -235,6 +236,7 @@ function SortableRankingCard({
           )}>
             {player.name}
           </span>
+          <CopyButton text={player.name} />
           {player.isDrafted && (
             <span className="text-xs text-dugout-500 bg-dugout-100 dark:bg-dugout-800 px-2 py-0.5 rounded">
               Drafted R{player.draftRound} P{player.draftPick}

@@ -7,6 +7,9 @@ import {
   Target, Sparkles, AlertTriangle, CheckCircle,
   SlidersHorizontal, X, Plus, Ban
 } from 'lucide-react';
+import { CopyButton } from '@/components/ui/CopyButton';
+import { useToast } from '@/components/ui/Toast';
+import { ConfirmModal } from '@/components/ui/Modal';
 import { cn, parseNaturalLanguageQuery, getTierColor } from '@/lib/utils';
 import { Player, PlayerFilters, DEFAULT_FILTERS, POSITIONS, Tier, TierNames, DEFAULT_TIER_NAMES } from '@/types';
 import { MyRankings } from '@/components/draft';
@@ -24,6 +27,7 @@ type TabType = 'all' | 'rankings';
 
 export default function DraftBoardPage() {
   useSession();
+  const { showToast } = useToast();
   const [players, setPlayers] = useState<Player[]>([]);
   const [rankings, setRankings] = useState<RankedPlayer[]>([]);
   const [tierNames, setTierNames] = useState<TierNames>(DEFAULT_TIER_NAMES);
@@ -39,6 +43,7 @@ export default function DraftBoardPage() {
   const [sortOrder] = useState<'asc' | 'desc'>('desc');
   const [expandedPlayer, setExpandedPlayer] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('all');
+  const [showSyncModal, setShowSyncModal] = useState(false);
 
   const COOLDOWN_MS = 5 * 60 * 1000;
 
@@ -116,7 +121,11 @@ export default function DraftBoardPage() {
 
   async function syncDraft() {
     if (cooldownRemaining > 0) {
-      alert(`⏱️ Please wait ${Math.ceil(cooldownRemaining / 1000)} seconds before syncing again.`);
+      showToast({
+        type: 'warning',
+        title: 'Please Wait',
+        message: `Wait ${Math.ceil(cooldownRemaining / 1000)} seconds before syncing again.`,
+      });
       return;
     }
     setSyncing(true);
@@ -138,10 +147,18 @@ export default function DraftBoardPage() {
       const rankingsData = await rankingsRes.json();
       if (playersData.players) setPlayers(playersData.players);
       if (rankingsData.rankings) setRankings(rankingsData.rankings);
-      alert(`✅ ${data.message}`);
+      showToast({
+        type: 'success',
+        title: 'Sync Complete',
+        message: data.message,
+      });
     } catch (error) {
       console.error('Sync error:', error);
-      alert('❌ Failed to sync draft results.');
+      showToast({
+        type: 'error',
+        title: 'Sync Failed',
+        message: 'Failed to sync draft results. Please try again.',
+      });
     } finally {
       setSyncing(false);
     }
@@ -576,6 +593,7 @@ function PlayerCard({
               <span className={cn("font-semibold", player.isNotInterested ? "text-dugout-500 line-through" : "text-dugout-900 dark:text-white")}>
                 {player.name}
               </span>
+              <CopyButton text={player.name} />
               {player.nickname && (
                 <span className="text-sm text-dugout-500">&quot;{player.nickname}&quot;</span>
               )}
