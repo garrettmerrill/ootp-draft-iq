@@ -280,26 +280,29 @@ export default function PhilosophyPage() {
           <div className="bg-purple-50 dark:bg-purple-950 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
             <div className="font-semibold text-purple-800 dark:text-purple-200 mb-2">Development Factor</div>
             <p className="text-xs text-purple-700 dark:text-purple-300 mb-2">
-              Rewards players who are closer to their ceiling. A player with 70 POT who is already at 60 current 
-              will score higher than a player with 70 POT who is still at 35 current.
+              Applied to individual skill ratings (Contact, Power, Stuff, etc.) to reward players closer to their ceiling.
+              A college player with more developed skills will score higher than a raw HS player with the same potential.
             </p>
             <div className="grid grid-cols-3 gap-2 text-xs">
               <div className="bg-white dark:bg-gray-900 p-2 rounded">
-                <div className="font-semibold">Raw Talent</div>
-                <div>70 POT / 35 cur</div>
-                <div className="text-purple-600">→ 59.5 effective</div>
+                <div className="font-semibold">Raw HS (Power)</div>
+                <div>70 POT / 25 cur</div>
+                <div className="text-purple-600">→ 56.6 effective</div>
               </div>
               <div className="bg-white dark:bg-gray-900 p-2 rounded">
-                <div className="font-semibold">Developing</div>
-                <div>70 POT / 50 cur</div>
-                <div className="text-purple-600">→ 64.0 effective</div>
+                <div className="font-semibold">College Jr (Power)</div>
+                <div>70 POT / 40 cur</div>
+                <div className="text-purple-600">→ 61.0 effective</div>
               </div>
               <div className="bg-white dark:bg-gray-900 p-2 rounded">
-                <div className="font-semibold">Polished</div>
-                <div>70 POT / 60 cur</div>
-                <div className="text-purple-600">→ 67.2 effective</div>
+                <div className="font-semibold">Polished (Power)</div>
+                <div>70 POT / 55 cur</div>
+                <div className="text-purple-600">→ 65.4 effective</div>
               </div>
             </div>
+            <p className="text-xs text-purple-500 mt-2 italic">
+              Typical ranges: HS skills 20-35 current, College skills 30-55 current
+            </p>
           </div>
           
           {/* Speed & Defense Explanation */}
