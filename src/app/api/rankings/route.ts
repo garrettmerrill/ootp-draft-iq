@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
-// GET - Fetch all user rankings with player data
+// GET - Fetch all user rankings with FULL player data
 export async function GET() {
   try {
     const prisma = (await import('@/lib/prisma')).default;
@@ -28,7 +28,7 @@ export async function GET() {
       ],
     });
 
-    // Transform to include full player info
+    // Transform to include FULL player info (matching the players API)
     const transformedRankings = rankings.map(r => ({
       id: r.id,
       odraftId: r.player.playerId,
@@ -48,18 +48,48 @@ export async function GET() {
         throws: r.player.throws,
         overall: r.player.overall,
         potential: r.player.potential,
+        // Personality
+        leadership: r.player.leadership,
+        loyalty: r.player.loyalty,
+        adaptability: r.player.adaptability,
+        financialAmbition: r.player.financialAmbition,
+        workEthic: r.player.workEthic,
+        intelligence: r.player.intelligence,
+        injuryProne: r.player.injuryProne,
+        // Background
+        school: r.player.school,
+        committedSchool: r.player.committedSchool,
+        competitionLevel: r.player.competitionLevel,
         highSchoolClass: r.player.highSchoolClass,
+        // All ratings (stored as JSON)
+        battingRatings: r.player.battingRatings,
+        pitchingRatings: r.player.pitchingRatings,
+        defenseRatings: r.player.defenseRatings,
+        speedRatings: r.player.speedRatings,
+        pitchArsenal: r.player.pitchArsenal,
+        // Signing
+        demandAmount: r.player.demandAmount,
+        signability: r.player.signability,
+        scoutAccuracy: r.player.scoutAccuracy,
+        risk: r.player.risk,
+        // Calculated
         compositeScore: r.player.compositeScore,
         tier: r.player.tier,
         isSleeper: r.player.isSleeper,
+        sleeperScore: r.player.sleeperScore,
         archetypes: r.player.archetypes,
         redFlags: r.player.redFlags,
         greenFlags: r.player.greenFlags,
+        hasSplitsIssues: r.player.hasSplitsIssues,
+        isTwoWay: r.player.isTwoWay,
+        isNotInterested: r.player.isNotInterested,
+        // Draft status
         isDrafted: r.player.isDrafted,
         draftRound: r.player.draftRound,
         draftPick: r.player.draftPick,
         draftTeam: r.player.draftTeam,
-        demandAmount: r.player.demandAmount,
+        // Score breakdown (stored as JSON)
+        scoreBreakdown: r.player.scoreBreakdown,
       },
     }));
 
