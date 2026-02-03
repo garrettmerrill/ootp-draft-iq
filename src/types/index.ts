@@ -384,6 +384,71 @@ export interface ScoreBreakdown {
   total: number;
 }
 
+// ==================== CUTOFFS ====================
+// Cutoffs are hard minimums - players failing ANY cutoff get score = 0
+
+export interface PhilosophyCutoffs {
+  // Batter rating minimums (applied to potential ratings)
+  batterCutoffs: {
+    contact: number | null;
+    power: number | null;
+    eye: number | null;
+    gap: number | null;
+    speed: number | null;
+    defense: number | null;
+  };
+  
+  // Pitcher rating minimums (applied to potential ratings)
+  pitcherCutoffs: {
+    stuff: number | null;
+    movement: number | null;
+    control: number | null;
+    stamina: number | null;
+  };
+  
+  // Personality cutoffs (true = exclude players with this trait)
+  personalityCutoffs: {
+    noLowWorkEthic: boolean;
+    noLowIntelligence: boolean;
+    noLowAdaptability: boolean;
+    noInjuryProne: boolean;
+  };
+  
+  // Risk cutoff - max acceptable risk level (null = no cutoff)
+  // 'Normal' = only normal risk, 'Medium' = normal or medium, etc.
+  maxRisk: 'Normal' | 'Medium' | 'High' | null;
+  
+  // Overall/Potential minimums
+  minPotential: number | null;
+  minOverall: number | null;
+}
+
+export const DEFAULT_CUTOFFS: PhilosophyCutoffs = {
+  batterCutoffs: {
+    contact: null,
+    power: null,
+    eye: null,
+    gap: null,
+    speed: null,
+    defense: null,
+  },
+  pitcherCutoffs: {
+    stuff: null,
+    movement: null,
+    control: null,
+    stamina: null,
+  },
+  personalityCutoffs: {
+    noLowWorkEthic: false,
+    noLowIntelligence: false,
+    noLowAdaptability: false,
+    noInjuryProne: false,
+  },
+  maxRisk: null,
+  minPotential: null,
+  minOverall: null,
+};
+
 // ==================== DRAFT PHILOSOPHY ====================
 // 
 // HOW PLAYER SCORES ARE CALCULATED:
@@ -418,6 +483,9 @@ export interface DraftPhilosophy {
   description?: string;
   isActive: boolean;
   isPreset: boolean;
+  
+  // Hard cutoffs - players failing ANY cutoff get score = 0
+  cutoffs: PhilosophyCutoffs;
   
   // Base weights (POT + OVR should sum to 60-80, remainder goes to skills)
   potentialWeight: number;  // % of score from POT rating
@@ -511,6 +579,8 @@ export const DEFAULT_PHILOSOPHY: DraftPhilosophy = {
   description: 'Balanced approach emphasizing individual tools with development factor',
   isActive: true,
   isPreset: false,
+  
+  cutoffs: DEFAULT_CUTOFFS,
   
   potentialWeight: 25,
   overallWeight: 10,

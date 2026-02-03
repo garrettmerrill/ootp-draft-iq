@@ -1,6 +1,7 @@
 import {
   Player,
   DraftPhilosophy,
+  PhilosophyCutoffs,
   Tier,
   ScoreBreakdown,
   PitchArsenal,
@@ -385,6 +386,126 @@ function normalize(val: number | null): number {
   return Math.max(0, Math.min(100, ((val - 20) / 60) * 100));
 }
 
+// ==================== CUTOFF CHECKING ====================
+/*
+ * Cutoffs are hard minimums - if a player fails ANY enabled cutoff, their score becomes 0.
+ * This allows users to filter out players who don't meet minimum requirements.
+ * 
+ * Returns: { passed: boolean, failedCutoffs: string[] }
+ */
+export function checkCutoffs(
+  player: Player,
+  cutoffs: PhilosophyCutoffs
+): { passed: boolean; failedCutoffs: string[] } {
+  const failedCutoffs: string[] = [];
+  const isPitcher = PITCHER_POSITIONS.includes(player.position as any);
+
+  // Check min potential
+  if (cutoffs.minPotential !== null && cutoffs.minPotential !== undefined) {
+    if (player.potential < cutoffs.minPotential) {
+      failedCutoffs.push(`Potential (${player.potential} < ${cutoffs.minPotential})`);
+    }
+  }
+
+  // Check min overall
+  if (cutoffs.minOverall !== null && cutoffs.minOverall !== undefined) {
+    if (player.overall < cutoffs.minOverall) {
+      failedCutoffs.push(`Overall (${player.overall} < ${cutoffs.minOverall})`);
+    }
+  }
+
+  // Check risk cutoff
+  if (cutoffs.maxRisk !== null && cutoffs.maxRisk !== undefined) {
+    const riskLevels = ['Normal', 'Medium', 'High', 'Very High'];
+    const maxRiskIndex = riskLevels.indexOf(cutoffs.maxRisk);
+    const playerRiskIndex = riskLevels.indexOf(player.risk || 'Normal');
+    
+    if (playerRiskIndex > maxRiskIndex) {
+      failedCutoffs.push(`Risk (${player.risk} > ${cutoffs.maxRisk})`);
+    }
+  }
+
+  // Check personality cutoffs
+  if (cutoffs.personalityCutoffs) {
+    if (cutoffs.personalityCutoffs.noLowWorkEthic && player.workEthic === 'L') {
+      failedCutoffs.push('Low Work Ethic');
+    }
+    if (cutoffs.personalityCutoffs.noLowIntelligence && player.intelligence === 'L') {
+      failedCutoffs.push('Low Intelligence');
+    }
+    if (cutoffs.personalityCutoffs.noLowAdaptability && player.adaptability === 'L') {
+      failedCutoffs.push('Low Adaptability');
+    }
+    if (cutoffs.personalityCutoffs.noInjuryProne && player.injuryProne === 'Fragile') {
+      failedCutoffs.push('Injury Prone');
+    }
+  }
+
+  // Check pitcher-specific cutoffs
+  if (isPitcher && cutoffs.pitcherCutoffs && player.pitchingRatings) {
+    const p = player.pitchingRatings;
+    const pc = cutoffs.pitcherCutoffs;
+    
+    if (pc.stuff !== null && pc.stuff !== undefined && p.stuffPot !== null) {
+      if (p.stuffPot < pc.stuff) {
+        failedCutoffs.push(`Stuff (${p.stuffPot} < ${pc.stuff})`);
+      }
+    }
+    if (pc.movement !== null && pc.movement !== undefined && p.movementPot !== null) {
+      if (p.movementPot < pc.movement) {
+        failedCutoffs.push(`Movement (${p.movementPot} < ${pc.movement})`);
+      }
+    }
+    if (pc.control !== null && pc.control !== undefined && p.controlPot !== null) {
+      if (p.controlPot < pc.control) {
+        failedCutoffs.push(`Control (${p.controlPot} < ${pc.control})`);
+      }
+    }
+    if (pc.stamina !== null && pc.stamina !== undefined && p.stamina !== null) {
+      if (p.stamina < pc.stamina) {
+        failedCutoffs.push(`Stamina (${p.stamina} < ${pc.stamina})`);
+      }
+    }
+  }
+
+  // Check batter-specific cutoffs
+  if (!isPitcher && cutoffs.batterCutoffs && player.battingRatings) {
+    const b = player.battingRatings;
+    const bc = cutoffs.batterCutoffs;
+    
+    if (bc.contact !== null && bc.contact !== undefined && b.contactPot !== null) {
+      if (b.contactPot < bc.contact) {
+        failedCutoffs.push(`Contact (${b.contactPot} < ${bc.contact})`);
+      }
+    }
+    if (bc.power !== null && bc.power !== undefined && b.powerPot !== null) {
+      if (b.powerPot < bc.power) {
+        failedCutoffs.push(`Power (${b.powerPot} < ${bc.power})`);
+      }
+    }
+    if (bc.eye !== null && bc.eye !== undefined && b.eyePot !== null) {
+      if (b.eyePot < bc.eye) {
+        failedCutoffs.push(`Eye (${b.eyePot} < ${bc.eye})`);
+      }
+    }
+    if (bc.gap !== null && bc.gap !== undefined && b.gapPot !== null) {
+      if (b.gapPot < bc.gap) {
+        failedCutoffs.push(`Gap (${b.gapPot} < ${bc.gap})`);
+      }
+    }
+    if (bc.speed !== null && bc.speed !== undefined && player.speedRatings?.speed !== null) {
+      if ((player.speedRatings?.speed || 0) < bc.speed) {
+        failedCutoffs.push(`Speed (${player.speedRatings?.speed || 0} < ${bc.speed})`);
+      }
+    }
+  }
+
+  return {
+    passed: failedCutoffs.length === 0,
+    failedCutoffs,
+  };
+}
+
 // ==================== DEVELOPMENT FACTOR ====================
 /*
  * Development Factor rewards players who are closer to their ceiling.
@@ -566,7 +687,7 @@ function calculateDefenseScore(defenseRatings: DefenseRatings | null, position: 
  *   TOTAL: ~63 points → "Very Good" tier
  */
 
-export function calculateCompositeScore(player: Player, philosophy: DraftPhilosophy): { score: number; breakdown: ScoreBreakdown } {
+export function calculateCompositeScore(player: Player, philosophy: DraftPhilosophy): { score: number; breakdown: ScoreBreakdown; failedCutoffs?: string[] } {
   const breakdown: ScoreBreakdown = {
     potentialContribution: 0,
     overallContribution: 0,
@@ -578,6 +699,15 @@ export function calculateCompositeScore(player: Player, philosophy: DraftPhiloso
     ratingContributions: {},
     total: 0,
   };
+
+  // Check cutoffs first - if player fails any cutoff, score is 0
+  if (philosophy.cutoffs) {
+    const cutoffResult = checkCutoffs(player, philosophy.cutoffs);
+    if (!cutoffResult.passed) {
+      breakdown.ratingContributions['FAILED CUTOFFS'] = 0;
+      return { score: 0, breakdown, failedCutoffs: cutoffResult.failedCutoffs };
+    }
+  }
 
   const isPitcher = PITCHER_POSITIONS.includes(player.position as any);
   const isStarter = player.position === 'SP';

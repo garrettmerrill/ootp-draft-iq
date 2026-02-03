@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { DraftPhilosophy, DEFAULT_PHILOSOPHY, POSITIONS, Player } from '@/types';
+import { DraftPhilosophy, DEFAULT_PHILOSOPHY, DEFAULT_CUTOFFS, POSITIONS, Player } from '@/types';
 import { calculateCompositeScore, assignTier } from '@/lib/playerAnalysis';
 import { useToast } from '@/components/ui/Toast';
 import { ConfirmModal, InputModal } from '@/components/ui/Modal';
@@ -14,6 +14,22 @@ function migratePhilosophy(old: any): DraftPhilosophy {
   return {
     ...DEFAULT_PHILOSOPHY,
     ...old,
+    cutoffs: {
+      ...DEFAULT_CUTOFFS,
+      ...(old.cutoffs || {}),
+      batterCutoffs: {
+        ...DEFAULT_CUTOFFS.batterCutoffs,
+        ...(old.cutoffs?.batterCutoffs || {}),
+      },
+      pitcherCutoffs: {
+        ...DEFAULT_CUTOFFS.pitcherCutoffs,
+        ...(old.cutoffs?.pitcherCutoffs || {}),
+      },
+      personalityCutoffs: {
+        ...DEFAULT_CUTOFFS.personalityCutoffs,
+        ...(old.cutoffs?.personalityCutoffs || {}),
+      },
+    },
     riskPenalties: {
       ...DEFAULT_PHILOSOPHY.riskPenalties,
       ...(old.riskPenalties || {}),
@@ -454,7 +470,9 @@ export default function PhilosophyPage() {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-3xl font-bold text-green-600">{testScore.score.toFixed(1)}</div>
+                  <div className={`text-3xl font-bold ${testScore.failedCutoffs && testScore.failedCutoffs.length > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    {testScore.score.toFixed(1)}
+                  </div>
                   <div className={`text-sm font-semibold ${
                     testTier === 'Elite' ? 'text-blue-600' :
                     testTier === 'Very Good' ? 'text-green-600' :
@@ -465,6 +483,23 @@ export default function PhilosophyPage() {
               </div>
               
               <div className="space-y-3">
+                {/* Show failed cutoffs if any */}
+                {testScore.failedCutoffs && testScore.failedCutoffs.length > 0 && (
+                  <div className="bg-red-50 dark:bg-red-950 border border-red-300 dark:border-red-700 rounded-lg p-3 mb-4">
+                    <div className="font-semibold text-red-700 dark:text-red-300 mb-2 flex items-center gap-2">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                      Failed Cutoffs (Score = 0)
+                    </div>
+                    <ul className="text-sm text-red-600 dark:text-red-400 space-y-1">
+                      {testScore.failedCutoffs.map((cutoff, i) => (
+                        <li key={i}>• {cutoff}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-dugout-600 dark:text-dugout-400">Potential Contribution</span>
                   <span className="font-mono text-blue-600">+{testScore.breakdown.potentialContribution.toFixed(2)}</span>
@@ -634,6 +669,205 @@ export default function PhilosophyPage() {
             <div className="text-xs text-gray-600 dark:text-gray-400">
               This portion comes from individual ratings (Power, Contact, Stuff, etc.) with the Development Factor applied.
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Hard Cutoffs */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border-2 border-red-200 dark:border-red-800">
+        <h2 className="text-xl font-semibold mb-2 flex items-center gap-2">
+          <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          Hard Cutoffs
+        </h2>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          Players who fail <strong>any</strong> enabled cutoff will receive a score of 0 and sink to the bottom of rankings.
+          Leave fields empty (or "None") to disable that cutoff.
+        </p>
+        
+        {/* Global Cutoffs */}
+        <div className="mb-6">
+          <h3 className="text-md font-semibold mb-3 text-gray-700 dark:text-gray-300">Global Cutoffs</h3>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Min Potential</label>
+              <select
+                value={editing.cutoffs.minPotential ?? ''}
+                onChange={(e) => setEditing({
+                  ...editing,
+                  cutoffs: { ...editing.cutoffs, minPotential: e.target.value ? Number(e.target.value) : null }
+                })}
+                className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+              >
+                <option value="">None</option>
+                {[30, 35, 40, 45, 50, 55, 60, 65, 70].map(v => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Min Overall</label>
+              <select
+                value={editing.cutoffs.minOverall ?? ''}
+                onChange={(e) => setEditing({
+                  ...editing,
+                  cutoffs: { ...editing.cutoffs, minOverall: e.target.value ? Number(e.target.value) : null }
+                })}
+                className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+              >
+                <option value="">None</option>
+                {[20, 25, 30, 35, 40, 45, 50].map(v => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Max Risk Level</label>
+              <select
+                value={editing.cutoffs.maxRisk ?? ''}
+                onChange={(e) => setEditing({
+                  ...editing,
+                  cutoffs: { ...editing.cutoffs, maxRisk: e.target.value ? e.target.value as 'Normal' | 'Medium' | 'High' : null }
+                })}
+                className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+              >
+                <option value="">None (allow all)</option>
+                <option value="Normal">Normal only</option>
+                <option value="Medium">Medium or better</option>
+                <option value="High">High or better (exclude Very High)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        
+        {/* Personality Cutoffs */}
+        <div className="mb-6">
+          <h3 className="text-md font-semibold mb-3 text-gray-700 dark:text-gray-300">Personality Cutoffs</h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Check to exclude players with these traits</p>
+          <div className="flex flex-wrap gap-4">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={editing.cutoffs.personalityCutoffs?.noLowWorkEthic ?? false}
+                onChange={(e) => setEditing({
+                  ...editing,
+                  cutoffs: {
+                    ...editing.cutoffs,
+                    personalityCutoffs: { ...editing.cutoffs.personalityCutoffs, noLowWorkEthic: e.target.checked }
+                  }
+                })}
+                className="mr-2"
+              />
+              No Low Work Ethic
+            </label>
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={editing.cutoffs.personalityCutoffs?.noLowIntelligence ?? false}
+                onChange={(e) => setEditing({
+                  ...editing,
+                  cutoffs: {
+                    ...editing.cutoffs,
+                    personalityCutoffs: { ...editing.cutoffs.personalityCutoffs, noLowIntelligence: e.target.checked }
+                  }
+                })}
+                className="mr-2"
+              />
+              No Low Intelligence
+            </label>
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={editing.cutoffs.personalityCutoffs?.noLowAdaptability ?? false}
+                onChange={(e) => setEditing({
+                  ...editing,
+                  cutoffs: {
+                    ...editing.cutoffs,
+                    personalityCutoffs: { ...editing.cutoffs.personalityCutoffs, noLowAdaptability: e.target.checked }
+                  }
+                })}
+                className="mr-2"
+              />
+              No Low Adaptability
+            </label>
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={editing.cutoffs.personalityCutoffs?.noInjuryProne ?? false}
+                onChange={(e) => setEditing({
+                  ...editing,
+                  cutoffs: {
+                    ...editing.cutoffs,
+                    personalityCutoffs: { ...editing.cutoffs.personalityCutoffs, noInjuryProne: e.target.checked }
+                  }
+                })}
+                className="mr-2"
+              />
+              No Injury Prone
+            </label>
+          </div>
+        </div>
+        
+        {/* Batter Rating Cutoffs */}
+        <div className="mb-6">
+          <h3 className="text-md font-semibold mb-3 text-gray-700 dark:text-gray-300">Batter Rating Cutoffs (Potential)</h3>
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
+            {(['contact', 'power', 'eye', 'gap', 'speed'] as const).map(rating => (
+              <div key={rating}>
+                <label className="block text-sm font-medium mb-2 capitalize">{rating}</label>
+                <select
+                  value={editing.cutoffs.batterCutoffs?.[rating] ?? ''}
+                  onChange={(e) => setEditing({
+                    ...editing,
+                    cutoffs: {
+                      ...editing.cutoffs,
+                      batterCutoffs: {
+                        ...editing.cutoffs.batterCutoffs,
+                        [rating]: e.target.value ? Number(e.target.value) : null
+                      }
+                    }
+                  })}
+                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-sm"
+                >
+                  <option value="">None</option>
+                  {[30, 35, 40, 45, 50, 55, 60].map(v => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* Pitcher Rating Cutoffs */}
+        <div>
+          <h3 className="text-md font-semibold mb-3 text-gray-700 dark:text-gray-300">Pitcher Rating Cutoffs (Potential)</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {(['stuff', 'movement', 'control', 'stamina'] as const).map(rating => (
+              <div key={rating}>
+                <label className="block text-sm font-medium mb-2 capitalize">{rating}</label>
+                <select
+                  value={editing.cutoffs.pitcherCutoffs?.[rating] ?? ''}
+                  onChange={(e) => setEditing({
+                    ...editing,
+                    cutoffs: {
+                      ...editing.cutoffs,
+                      pitcherCutoffs: {
+                        ...editing.cutoffs.pitcherCutoffs,
+                        [rating]: e.target.value ? Number(e.target.value) : null
+                      }
+                    }
+                  })}
+                  className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 text-sm"
+                >
+                  <option value="">None</option>
+                  {[30, 35, 40, 45, 50, 55, 60].map(v => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </select>
+              </div>
+            ))}
           </div>
         </div>
       </div>
