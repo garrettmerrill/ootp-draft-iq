@@ -38,6 +38,9 @@ model UserSettings {
   tier4Name   String   @default("Value")
   tier5Name   String   @default("Flier")
   
+  // User's team for My Draft feature
+  myTeamName  String?
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }

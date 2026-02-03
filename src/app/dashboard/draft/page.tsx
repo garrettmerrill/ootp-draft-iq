@@ -11,7 +11,7 @@ import { CopyButton } from '@/components/ui/CopyButton';
 import { useToast } from '@/components/ui/Toast';
 import { cn, parseNaturalLanguageQuery, getTierColor } from '@/lib/utils';
 import { Player, PlayerFilters, DEFAULT_FILTERS, POSITIONS, Tier, TierNames, DEFAULT_TIER_NAMES } from '@/types';
-import { MyRankings } from '@/components/draft';
+import { MyRankings, MyDraft } from '@/components/draft';
 
 interface RankedPlayer {
   id: string;
@@ -22,7 +22,7 @@ interface RankedPlayer {
   player: Player;
 }
 
-type TabType = 'all' | 'rankings';
+type TabType = 'all' | 'rankings' | 'mydraft';
 
 export default function DraftBoardPage() {
   useSession();
@@ -279,9 +279,11 @@ export default function DraftBoardPage() {
       <div className="sticky top-0 z-40 bg-dugout-50 dark:bg-dugout-950 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pb-4 pt-2 border-b border-dugout-200 dark:border-dugout-800">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
           <div>
-            <h1 className="text-2xl font-bold text-dugout-900 dark:text-white">Draft Board</h1>
+            <h1 className="text-2xl font-bold text-dugout-900 dark:text-white">Draft Hub</h1>
             <p className="text-dugout-500 dark:text-dugout-400 mt-1">
-              {activeTab === 'all' ? `${filteredPlayers.length} of ${players.length} players` : `${rankingsCount} players ranked`}
+              {activeTab === 'all' && `${filteredPlayers.length} of ${players.length} players`}
+              {activeTab === 'rankings' && `${rankingsCount} players ranked`}
+              {activeTab === 'mydraft' && 'Track your team\'s draft picks'}
             </p>
           </div>
           <button 
@@ -324,6 +326,17 @@ export default function DraftBoardPage() {
                 {rankingsCount}
               </span>
             )}
+          </button>
+          <button
+            onClick={() => setActiveTab('mydraft')}
+            className={cn(
+              'px-4 py-2 rounded-lg font-medium transition-colors',
+              activeTab === 'mydraft'
+                ? 'bg-diamond-600 text-white'
+                : 'bg-dugout-100 dark:bg-dugout-800 text-dugout-600 dark:text-dugout-400 hover:bg-dugout-200 dark:hover:bg-dugout-700'
+            )}
+          >
+            My Draft
           </button>
         </div>
 
@@ -446,7 +459,7 @@ export default function DraftBoardPage() {
               </div>
             )}
           </div>
-        ) : (
+        ) : activeTab === 'rankings' ? (
           <MyRankings
             rankings={rankings}
             tierNames={tierNames}
@@ -455,6 +468,12 @@ export default function DraftBoardPage() {
             onChangeTier={handleChangeTier}
             onUpdateTierNames={handleUpdateTierNames}
             isLoading={rankingsLoading}
+          />
+        ) : (
+          <MyDraft
+            onSync={syncDraft}
+            syncing={syncing}
+            cooldownRemaining={cooldownRemaining}
           />
         )}
       </div>

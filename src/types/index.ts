@@ -848,3 +848,62 @@ export const DEFAULT_FILTERS: PlayerFilters = {
   maxDemand: null,
   searchQuery: '',
 };
+
+// ==================== MY DRAFT TYPES ====================
+
+// MLB Teams list (hardcoded - these don't change often)
+export const MLB_TEAMS = [
+  'Arizona Diamondbacks',
+  'Atlanta Braves',
+  'Baltimore Orioles',
+  'Boston Red Sox',
+  'Chicago Cubs',
+  'Chicago White Sox',
+  'Cincinnati Reds',
+  'Cleveland Guardians',
+  'Colorado Rockies',
+  'Detroit Tigers',
+  'Houston Astros',
+  'Kansas City Royals',
+  'Los Angeles Angels',
+  'Los Angeles Dodgers',
+  'Miami Marlins',
+  'Milwaukee Brewers',
+  'Minnesota Twins',
+  'New York Mets',
+  'New York Yankees',
+  'Oakland Athletics',
+  'Philadelphia Phillies',
+  'Pittsburgh Pirates',
+  'San Diego Padres',
+  'San Francisco Giants',
+  'Seattle Mariners',
+  'St. Louis Cardinals',
+  'Tampa Bay Rays',
+  'Texas Rangers',
+  'Toronto Blue Jays',
+  'Washington Nationals',
+] as const;
+
+export type MLBTeam = typeof MLB_TEAMS[number];
+
+// My Draft pick with player signing data
+export interface MyDraftPick {
+  round: number;
+  pick: number;
+  overallPick: number;
+  playerName: string;
+  playerId: string | null;
+  position: string | null;
+  demandAmount: string | null;
+  signability: string | null;
+  isSlotDemand: boolean;
+}
+
+// Draft summary stats
+export interface MyDraftSummary {
+  totalPicks: number;
+  totalCommitted: number;
+  slotDemandCount: number;
+  unknownDemandCount: number;
+}

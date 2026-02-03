@@ -118,37 +118,66 @@ export async function POST(request: NextRequest) {
     console.log('Available fields:', Object.keys(draftData[0]));
 
     let updatedCount = 0;
-    const updates: Promise<any>[] = [];
+    let draftPicksCreated = 0;
+    const playerUpdates: Promise<any>[] = [];
+    const draftPickUpserts: Promise<any>[] = [];
 
-    // Match draft picks to players
+    // Process each draft pick
     for (const pick of draftData) {
       // Stats Plus uses 'Player Name' (with space)
       const playerName = pick['Player Name'];
+      const teamName = pick.Team || '';
+      const round = parseInt(pick.Round || '0');
+      const pickNum = parseInt(pick['Pick In Round'] || '0');
+      const overallPick = parseInt(pick['Overall Pick'] || '0');
       
-      if (!playerName) {
-        console.warn('No player name found in pick:', pick);
+      if (!playerName || !teamName || round === 0) {
+        console.warn('Incomplete pick data:', pick);
         continue;
       }
       
-      // Try to find player by name (case-insensitive)
+      // Create/update DraftPick record for all picks (regardless of player match)
+      draftPickUpserts.push(
+        prisma.draftPick.upsert({
+          where: {
+            userId_round_pick: {
+              userId,
+              round,
+              pick: pickNum,
+            },
+          },
+          update: {
+            teamName,
+            playerName,
+            overallPick,
+          },
+          create: {
+            userId,
+            round,
+            pick: pickNum,
+            overallPick,
+            teamName,
+            playerName,
+          },
+        })
+      );
+      draftPicksCreated++;
+      
+      // Try to find player by name (case-insensitive) to update their draft status
       const player = players.find(p => 
-        p.name.toLowerCase() === playerName.toLowerCase()
+        p.name.toLowerCase().trim() === playerName.toLowerCase().trim()
       );
 
       if (player) {
-        // Parse round and pick as integers
-        const round = parseInt(pick.Round || '0');
-        const pickNum = parseInt(pick['Pick In Round'] || '0');
-        
         // Update player with draft information
-        updates.push(
+        playerUpdates.push(
           prisma.player.update({
             where: { id: player.id },
             data: {
               isDrafted: true,
               draftRound: round,
               draftPick: pickNum,
-              draftTeam: pick.Team || '',
+              draftTeam: teamName,
             },
           })
         );
@@ -156,14 +185,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Execute all updates
-    await Promise.all(updates);
+    // Execute all updates in batches to avoid connection pool issues
+    const BATCH_SIZE = 50;
+    
+    // Process draft pick upserts in batches
+    for (let i = 0; i < draftPickUpserts.length; i += BATCH_SIZE) {
+      const batch = draftPickUpserts.slice(i, i + BATCH_SIZE);
+      await Promise.all(batch);
+    }
+    
+    // Process player updates in batches
+    for (let i = 0; i < playerUpdates.length; i += BATCH_SIZE) {
+      const batch = playerUpdates.slice(i, i + BATCH_SIZE);
+      await Promise.all(batch);
+    }
 
     return NextResponse.json({
       success: true,
       updated: updatedCount,
+      draftPicksSynced: draftPicksCreated,
       total: draftData.length,
-      message: `Updated ${updatedCount} of ${draftData.length} drafted players`,
+      message: `Synced ${draftPicksCreated} draft picks, matched ${updatedCount} players`,
     });
 
   } catch (error) {

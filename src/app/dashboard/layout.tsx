@@ -29,7 +29,7 @@ const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Upload CSV', href: '/dashboard/upload', icon: Upload },
   { name: 'Draft Philosophy', href: '/dashboard/philosophy', icon: Settings2 },
-  { name: 'Draft Board', href: '/dashboard/draft', icon: Target },
+  { name: 'Draft Hub', href: '/dashboard/draft', icon: Target },
   { name: 'Sleepers', href: '/dashboard/sleepers', icon: Sparkles },
   { name: 'Compare', href: '/dashboard/compare', icon: Users },
   { name: 'Draft History', href: '/dashboard/history', icon: History },
