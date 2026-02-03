@@ -40,7 +40,7 @@ export function MyDraft({ onSync, syncing, cooldownRemaining }: MyDraftProps) {
   const addCustomTeam = useCallback((team: string) => {
     setCustomTeams(prev => {
       // Don't add duplicates or MLB teams
-      if (prev.includes(team) || MLB_TEAMS.includes(team)) {
+      if (prev.includes(team) || (MLB_TEAMS as readonly string[]).includes(team)) {
         return prev;
       }
       const updated = [...prev, team];
@@ -66,7 +66,7 @@ export function MyDraft({ onSync, syncing, cooldownRemaining }: MyDraftProps) {
       setSummary(data.summary || null);
       
       // If the current team is a custom team, make sure it's in our list
-      if (data.teamName && !MLB_TEAMS.includes(data.teamName)) {
+      if (data.teamName && !(MLB_TEAMS as readonly string[]).includes(data.teamName)) {
         addCustomTeam(data.teamName);
       }
     } catch (err) {
@@ -94,7 +94,7 @@ export function MyDraft({ onSync, syncing, cooldownRemaining }: MyDraftProps) {
       setTeamName(team);
       
       // If this is a custom team, add it to our list
-      if (team && !MLB_TEAMS.includes(team)) {
+      if (team && !(MLB_TEAMS as readonly string[]).includes(team)) {
         addCustomTeam(team);
       }
       
@@ -406,7 +406,7 @@ function TeamSelector({
   const [customTeamName, setCustomTeamName] = useState('');
 
   // Check if current team is custom (not in MLB_TEAMS)
-  const isCurrentTeamCustom = teamName && !MLB_TEAMS.includes(teamName);
+  const isCurrentTeamCustom = teamName && !(MLB_TEAMS as readonly string[]).includes(teamName);
 
   return (
     <div className="flex items-center gap-3">
