@@ -101,6 +101,36 @@ export async function GET() {
   }
 }
 
+// DELETE - Clear all rankings for user
+export async function DELETE() {
+  try {
+    const prisma = (await import('@/lib/prisma')).default;
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const userId = (session.user as { id: string }).id;
+
+    // Delete all rankings for this user
+    const result = await prisma.userRanking.deleteMany({
+      where: { userId },
+    });
+
+    return NextResponse.json({ 
+      success: true, 
+      deleted: result.count 
+    });
+  } catch (error) {
+    console.error('Failed to clear rankings:', error);
+    return NextResponse.json(
+      { error: 'Failed to clear rankings' },
+      { status: 500 }
+    );
+  }
+}
+
 // POST - Add a player to rankings
 export async function POST(request: Request) {
   try {

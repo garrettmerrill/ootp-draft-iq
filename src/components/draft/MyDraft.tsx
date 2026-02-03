@@ -11,6 +11,8 @@ interface MyDraftProps {
   cooldownRemaining: number;
 }
 
+const CUSTOM_TEAMS_STORAGE_KEY = 'ootp-draft-iq-custom-teams';
+
 export function MyDraft({ onSync, syncing, cooldownRemaining }: MyDraftProps) {
   const [teamName, setTeamName] = useState<string | null>(null);
   const [picks, setPicks] = useState<MyDraftPick[]>([]);
@@ -20,6 +22,36 @@ export function MyDraft({ onSync, syncing, cooldownRemaining }: MyDraftProps) {
   const [customTeamName, setCustomTeamName] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [customTeams, setCustomTeams] = useState<string[]>([]);
+
+  // Load custom teams from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(CUSTOM_TEAMS_STORAGE_KEY);
+      if (stored) {
+        setCustomTeams(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.error('Failed to load custom teams from localStorage:', e);
+    }
+  }, []);
+
+  // Add a custom team to the list
+  const addCustomTeam = useCallback((team: string) => {
+    setCustomTeams(prev => {
+      // Don't add duplicates or MLB teams
+      if (prev.includes(team) || MLB_TEAMS.includes(team)) {
+        return prev;
+      }
+      const updated = [...prev, team];
+      try {
+        localStorage.setItem(CUSTOM_TEAMS_STORAGE_KEY, JSON.stringify(updated));
+      } catch (e) {
+        console.error('Failed to save custom teams to localStorage:', e);
+      }
+      return updated;
+    });
+  }, []);
 
   // Fetch team and picks
   const fetchMyDraft = useCallback(async () => {
@@ -32,13 +64,18 @@ export function MyDraft({ onSync, syncing, cooldownRemaining }: MyDraftProps) {
       setTeamName(data.teamName);
       setPicks(data.picks || []);
       setSummary(data.summary || null);
+      
+      // If the current team is a custom team, make sure it's in our list
+      if (data.teamName && !MLB_TEAMS.includes(data.teamName)) {
+        addCustomTeam(data.teamName);
+      }
     } catch (err) {
       console.error('Failed to fetch my draft:', err);
       setError('Failed to load draft data. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [addCustomTeam]);
 
   useEffect(() => {
     fetchMyDraft();
@@ -55,6 +92,12 @@ export function MyDraft({ onSync, syncing, cooldownRemaining }: MyDraftProps) {
       });
       if (!res.ok) throw new Error('Failed to save team');
       setTeamName(team);
+      
+      // If this is a custom team, add it to our list
+      if (team && !MLB_TEAMS.includes(team)) {
+        addCustomTeam(team);
+      }
+      
       // Refetch picks for new team
       await fetchMyDraft();
     } catch (err) {
@@ -196,6 +239,8 @@ export function MyDraft({ onSync, syncing, cooldownRemaining }: MyDraftProps) {
           teamName={teamName} 
           onTeamChange={handleTeamChange} 
           saving={saving}
+          customTeams={customTeams}
+          onAddCustomTeam={addCustomTeam}
         />
         
         <div className="card p-6">
@@ -230,6 +275,8 @@ export function MyDraft({ onSync, syncing, cooldownRemaining }: MyDraftProps) {
           teamName={teamName} 
           onTeamChange={handleTeamChange} 
           saving={saving}
+          customTeams={customTeams}
+          onAddCustomTeam={addCustomTeam}
         />
         <button
           onClick={handleSyncAndRefresh}
@@ -344,13 +391,22 @@ export function MyDraft({ onSync, syncing, cooldownRemaining }: MyDraftProps) {
 function TeamSelector({ 
   teamName, 
   onTeamChange, 
-  saving 
+  saving,
+  customTeams,
+  onAddCustomTeam,
 }: { 
   teamName: string; 
   onTeamChange: (team: string | null) => void;
   saving: boolean;
+  customTeams: string[];
+  onAddCustomTeam: (team: string) => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [showCustomInput, setShowCustomInput] = useState(false);
+  const [customTeamName, setCustomTeamName] = useState('');
+
+  // Check if current team is custom (not in MLB_TEAMS)
+  const isCurrentTeamCustom = teamName && !MLB_TEAMS.includes(teamName);
 
   return (
     <div className="flex items-center gap-3">
@@ -362,6 +418,9 @@ function TeamSelector({
           className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-dugout-100 dark:bg-dugout-800 text-dugout-900 dark:text-white font-medium hover:bg-dugout-200 dark:hover:bg-dugout-700 transition-colors"
         >
           {teamName}
+          {isCurrentTeamCustom && (
+            <span className="text-xs text-dugout-400">(Custom)</span>
+          )}
           <ChevronDown className={cn("w-4 h-4 transition-transform", isOpen && "rotate-180")} />
         </button>
         
@@ -369,9 +428,91 @@ function TeamSelector({
           <>
             <div 
               className="fixed inset-0 z-40" 
-              onClick={() => setIsOpen(false)} 
+              onClick={() => {
+                setIsOpen(false);
+                setShowCustomInput(false);
+                setCustomTeamName('');
+              }} 
             />
-            <div className="absolute top-full left-0 mt-1 z-50 w-64 max-h-80 overflow-y-auto rounded-lg shadow-xl border border-dugout-200 dark:border-dugout-700 bg-white dark:bg-dugout-900">
+            <div className="absolute top-full left-0 mt-1 z-50 w-72 max-h-96 overflow-y-auto rounded-lg shadow-xl border border-dugout-200 dark:border-dugout-700 bg-white dark:bg-dugout-900">
+              {/* Custom teams section */}
+              {customTeams.length > 0 && (
+                <>
+                  <div className="px-3 py-2 text-xs font-medium text-dugout-500 dark:text-dugout-400 bg-dugout-50 dark:bg-dugout-800/50">
+                    Custom Teams
+                  </div>
+                  {customTeams.map((team) => (
+                    <button
+                      key={team}
+                      onClick={() => {
+                        onTeamChange(team);
+                        setIsOpen(false);
+                      }}
+                      className={cn(
+                        "w-full px-3 py-2 text-left text-sm hover:bg-dugout-100 dark:hover:bg-dugout-800 transition-colors",
+                        team === teamName && "bg-diamond-50 dark:bg-diamond-900/20 text-diamond-700 dark:text-diamond-400"
+                      )}
+                    >
+                      {team}
+                    </button>
+                  ))}
+                </>
+              )}
+              
+              {/* Add custom team option */}
+              {showCustomInput ? (
+                <div className="p-2 border-b border-dugout-200 dark:border-dugout-700">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={customTeamName}
+                      onChange={(e) => setCustomTeamName(e.target.value)}
+                      placeholder="Team name..."
+                      className="input text-sm flex-1 py-1.5"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && customTeamName.trim()) {
+                          onAddCustomTeam(customTeamName.trim());
+                          onTeamChange(customTeamName.trim());
+                          setShowCustomInput(false);
+                          setCustomTeamName('');
+                          setIsOpen(false);
+                        } else if (e.key === 'Escape') {
+                          setShowCustomInput(false);
+                          setCustomTeamName('');
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={() => {
+                        if (customTeamName.trim()) {
+                          onAddCustomTeam(customTeamName.trim());
+                          onTeamChange(customTeamName.trim());
+                          setShowCustomInput(false);
+                          setCustomTeamName('');
+                          setIsOpen(false);
+                        }
+                      }}
+                      disabled={!customTeamName.trim()}
+                      className="btn-primary btn-sm text-xs"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowCustomInput(true)}
+                  className="w-full px-3 py-2 text-left text-sm text-diamond-600 dark:text-diamond-400 hover:bg-dugout-100 dark:hover:bg-dugout-800 transition-colors border-b border-dugout-200 dark:border-dugout-700"
+                >
+                  + Add Custom Team
+                </button>
+              )}
+              
+              {/* MLB Teams section */}
+              <div className="px-3 py-2 text-xs font-medium text-dugout-500 dark:text-dugout-400 bg-dugout-50 dark:bg-dugout-800/50">
+                MLB Teams
+              </div>
               {MLB_TEAMS.map((team) => (
                 <button
                   key={team}

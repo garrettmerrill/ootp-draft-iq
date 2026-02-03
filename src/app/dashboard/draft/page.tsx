@@ -252,6 +252,19 @@ export default function DraftBoardPage() {
     setTierNames(newTierNames);
   }, []);
 
+  const handleClearAllRankings = useCallback(async () => {
+    const res = await fetch('/api/rankings', { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to clear rankings');
+    setRankings([]);
+    // Update players to remove ranking reference
+    setPlayers(prev => prev.map(p => ({ ...p, ranking: null })));
+    showToast({
+      type: 'success',
+      title: 'Rankings Cleared',
+      message: 'All players have been removed from your rankings.',
+    });
+  }, [showToast]);
+
   const rankingsCount = rankings.filter(r => !r.player.isDrafted).length;
 
   if (loading) {
@@ -467,6 +480,7 @@ export default function DraftBoardPage() {
             onRemove={handleRemoveFromRankings}
             onChangeTier={handleChangeTier}
             onUpdateTierNames={handleUpdateTierNames}
+            onClearAll={handleClearAllRankings}
             isLoading={rankingsLoading}
           />
         ) : (

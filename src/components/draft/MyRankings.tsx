@@ -16,7 +16,7 @@ import {
 import {
   sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
-import { Download, Settings2, Loader2 } from 'lucide-react';
+import { Download, Settings2, Loader2, Trash2 } from 'lucide-react';
 import { TierSection } from './TierSection';
 import { RenameTiersModal } from './RenameTiersModal';
 import { Player, TierNames, DEFAULT_TIER_NAMES } from '@/types';
@@ -37,6 +37,7 @@ interface MyRankingsProps {
   onRemove: (playerId: string) => Promise<void>;
   onChangeTier: (rankingId: string, newTier: number) => Promise<void>;
   onUpdateTierNames: (tierNames: TierNames) => Promise<void>;
+  onClearAll: () => Promise<void>;
   isLoading: boolean;
 }
 
@@ -47,6 +48,7 @@ export function MyRankings({
   onRemove,
   onChangeTier,
   onUpdateTierNames,
+  onClearAll,
   isLoading,
 }: MyRankingsProps) {
   const [showRenameTiers, setShowRenameTiers] = useState(false);
@@ -56,6 +58,8 @@ export function MyRankings({
   const [overTier, setOverTier] = useState<number | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(null);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -202,6 +206,19 @@ export function MyRankings({
     }
   }
 
+  async function handleClearAll() {
+    setIsClearing(true);
+    try {
+      await onClearAll();
+      setShowClearConfirm(false);
+    } catch (error) {
+      console.error('Clear all failed:', error);
+      alert('Failed to clear rankings');
+    } finally {
+      setIsClearing(false);
+    }
+  }
+
   const activeRanking = activeId 
     ? rankings.find(r => r.id === activeId)
     : null;
@@ -224,6 +241,14 @@ export function MyRankings({
           )}
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowClearConfirm(true)}
+            disabled={totalRanked === 0}
+            className="btn-ghost btn-sm text-redFlag hover:bg-redFlag/10 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Trash2 className="w-4 h-4" />
+            Clear All
+          </button>
           <button
             onClick={() => setShowRenameTiers(true)}
             className="btn-secondary btn-sm"
@@ -345,6 +370,47 @@ export function MyRankings({
         tierNames={tierNames}
         onSave={onUpdateTierNames}
       />
+
+      {/* Clear All Confirmation Modal */}
+      {showClearConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div 
+            className="absolute inset-0 bg-black/50" 
+            onClick={() => !isClearing && setShowClearConfirm(false)}
+          />
+          <div className="relative bg-white dark:bg-dugout-900 rounded-lg shadow-xl p-6 max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-dugout-900 dark:text-white mb-2">
+              Clear All Rankings?
+            </h3>
+            <p className="text-dugout-600 dark:text-dugout-400 mb-4">
+              This will remove all {totalRanked} {totalRanked === 1 ? 'player' : 'players'} from your rankings. This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowClearConfirm(false)}
+                disabled={isClearing}
+                className="btn-secondary btn-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleClearAll}
+                disabled={isClearing}
+                className="btn-sm bg-redFlag text-white hover:bg-redFlag/90 disabled:opacity-50"
+              >
+                {isClearing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Clearing...
+                  </>
+                ) : (
+                  'Clear All'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
